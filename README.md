@@ -1,4 +1,4 @@
-# Whalepeaks_Cer_Platform
+# 자격증 모의고사 플랫폼
 Git 설치
 Node.JS 설치
 VS code 설치
