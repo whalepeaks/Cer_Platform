@@ -1,4 +1,11 @@
 # 고래봉 플랫폼
+## 개발 시작하기
+```
+VScode 터미널
+npm start
+개발 서버를 연결해놓은 상태
+Cer_Platform/feature/ui-mainpage/frontend/src 경로에 있는 js파일들로 웹화면 구성
+```
 ## 기본 설치 셋팅
 Git 설치
 ```
