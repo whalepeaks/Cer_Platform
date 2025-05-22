@@ -5,7 +5,7 @@ import React from 'react';
 function Header() {
   return (
     <header className="header">
-      <h1>고래봉 platform</h1>
+      <h1>고래봉 Platform</h1>
       <nav className="navigation">
         <ul>
           <li><a href="/">홈으로</a></li>
