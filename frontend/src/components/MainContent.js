@@ -27,7 +27,7 @@ function MainContent() {
         <Col md={4} className="mb-3">
           <Card>
             <Card.Body>
-              <Card.Title>정보처리기사사</Card.Title>
+              <Card.Title>정보처리기사</Card.Title>
               <Card.Text>
                 보안기사 붙으면 안할거에요
               </Card.Text>
