@@ -1,0 +1,156 @@
+/* 기본 스타일 초기화 및 폰트 설정 */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f4f7f6; /* 전체 배경색 */
+  color: #333; /* 기본 글자색 */
+  line-height: 1.6;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* 전체 페이지 컨테이너 */
+.container {
+  max-width: 1200px; /* 최대 너비 제한 */
+  margin: 0 auto; /* 가운데 정렬 */
+  padding: 0 20px; /* 좌우 여백 */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* 화면 전체 높이 차지 */
+}
+
+/* 헤더 스타일 */
+.header {
+  background-color: #ffffff; /* 헤더 배경색 */
+  padding: 20px 0;
+  border-bottom: 1px solid #e0e0e0; /* 하단 구분선 */
+  display: flex;
+  justify-content: space-between; /* 로고와 네비게이션 양쪽 정렬 */
+  align-items: center;
+  flex-wrap: wrap; /* 화면 작을 때 줄바꿈 허용 */
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.8em;
+  color: #2c3e50; /* 헤더 타이틀 색상 */
+}
+
+/* 네비게이션 스타일 */
+.navigation ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+}
+
+.navigation li {
+  margin-left: 20px;
+}
+
+.navigation a {
+  text-decoration: none;
+  color: #555; /* 네비게이션 링크 색상 */
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.navigation a:hover,
+.navigation a:focus {
+  color: #007bff; /* 호버 시 색상 변경 */
+}
+
+/* 메인 콘텐츠 영역 스타일 */
+.main-content {
+  flex-grow: 1; /* 푸터가 항상 하단에 위치하도록 함 */
+  padding: 40px 0;
+  background-color: #ffffff;
+  border-radius: 8px; /* 모서리 둥글게 */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); /* 부드러운 그림자 효과 */
+  margin-top: 20px;
+  margin-bottom: 20px;
+  padding: 30px; /* 내부 여백 */
+}
+
+.main-content h2 {
+  color: #34495e;
+  margin-top: 0;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* 푸터 스타일 */
+.footer {
+  text-align: center;
+  padding: 20px 0;
+  color: #777;
+  font-size: 0.9em;
+  border-top: 1px solid #e0e0e0; /* 상단 구분선 */
+  margin-top: auto; /* 메인 콘텐츠가 짧을 경우 푸터를 아래로 밀어냄 */
+}
+
+/* 버튼 스타일 (예시) */
+.button {
+  display: inline-block;
+  background-color: #007bff;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  text-decoration: none;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}
+
+/* 링크 스타일 (예시) */
+a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* 반응형 디자인 (작은 화면에서 헤더 요소 세로 정렬) */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header h1 {
+    margin-bottom: 15px;
+  }
+
+  .navigation ul {
+    flex-direction: column;
+    width: 100%; /* 모바일에서 네비게이션 전체 너비 사용 */
+  }
+
+  .navigation li {
+    margin-left: 0;
+    margin-bottom: 10px;
+    text-align: center; /* 모바일에서 네비게이션 링크 가운데 정렬 */
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 10px;
+  }
+  .navigation li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+}
