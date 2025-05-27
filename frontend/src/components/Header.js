@@ -8,7 +8,7 @@ function Header() {
       <h1>고래봉 Platform</h1>
       <nav className="navigation">
         <ul>
-          <li><a href="/">홈으로</a></li>
+          <li><a href="/">홈</a></li>
           <li><a href="/tests">모의고사 목록</a></li>
           <li><a href="/login">로그인</a></li>
         </ul>
