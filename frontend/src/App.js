@@ -1,22 +1,30 @@
-// frontend/src/App.js
 import React from 'react';
-import AppNavbar from './components/AppNavbar';
-import MainContent from './components/MainContent';
-import AppFooter from './components/AppFooter';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import AppNavbar from './components/AppNavbar'; // 기존 Navbar
+import MainContent from './components/MainContent'; // 기존 MainContent
+import QuestionPage from './pages/QuestionPage';   // 새로 만들 문제 페이지 컴포넌트
+import AppFooter from './components/AppFooter';   // 기존 Footer
+import Container from 'react-bootstrap/Container'; // Bootstrap 컨테이너 추가
 
-// 전역 스타일 또는 App 특정 스타일 (필요하다면)
-// import './App.css'; // 만약 App.css를 사용한다면
-// import './global.css'; // 만약 global.css를 사용하고 index.js에 이미 import하지 않았다면
+// Bootstrap CSS를 App.js 또는 index.js에 임포트합니다.
+// import 'bootstrap/dist/css/bootstrap.min.css'; // 이미 되어있을 수 있습니다.
 
 function App() {
   return (
-    // React.Fragment 또는 div로 감싸기
-    // 푸터를 하단에 고정하기 위해 flex 스타일 적용
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppNavbar />
-      <MainContent /> {/* 이 부분이 나중에 라우팅에 따라 동적으로 변경될 수 있음 */}
-      <AppFooter />
-    </div>
+    <Router>
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <AppNavbar />
+        <Container as="main" className="py-4" style={{ flex: 1 }}> {/* 메인 콘텐츠 영역 */}
+          <Routes>
+            <Route path="/" element={<MainContent />} />
+            {/* :examTypeId와 :roundIdentifier는 URL 파라미터로 문제 페이지에 전달됩니다. */}
+            <Route path="/questions/:examTypeId/:roundIdentifier" element={<QuestionPage />} />
+            {/* 다른 필요한 라우트들 (예: 로그인 페이지) */}
+          </Routes>
+        </Container>
+        <AppFooter />
+      </div>
+    </Router>
   );
 }
 
