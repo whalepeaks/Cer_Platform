@@ -1,10 +1,11 @@
+require('dotenv').config(); 
 const express = require('express');
-const mysql = require('mysql2/promise');
 const cors = require('cors');
-require('dotenv').config(); // .env 파일의 환경 변수를 불러오기 위함
+const mysql = require('mysql2/promise');
 
 const app = express();
 const port = process.env.PORT || 3001;
+const aiService = require('./aiService');
 
 app.use(cors()); 
 app.use(express.json());
@@ -232,7 +233,22 @@ app.get('/api/submission-results/:submissionId', async (req, res) => {
         res.status(500).json({ message: '제출 결과 조회 중 서버 오류가 발생했습니다.' });
     }
 });
-
+// Perplexity API 라우트에서 함수 호출 시
+app.post('/api/ai/generate-text', async (req, res) => {
+    const { prompt } = req.body;
+    if (!prompt) {
+        return res.status(400).json({ message: 'prompt가 필요합니다.' });
+    }
+    try {
+        console.log(`Perplexity API 텍스트 생성 요청 받음, prompt: ${prompt}`);
+        // aiService 객체 안의 함수를 호출하도록 수정
+        const generatedText = await aiService.generateTextWithPerplexitySDK(prompt);
+        res.json({ generatedText });
+    } catch (error) {
+        console.error('AI 텍스트 생성 API 오류:', error.message);
+        res.status(500).json({ message: 'AI 텍스트 생성 중 오류가 발생했습니다.', error: error.message });
+    }
+});
 // 서버 시작
 app.listen(port, () => {
     console.log(`백엔드 서버가 http://localhost:${port} 에서 실행 중입니다.`);
