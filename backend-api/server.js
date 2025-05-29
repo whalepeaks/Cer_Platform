@@ -5,7 +5,9 @@ const mysql = require('mysql2/promise');
 
 const app = express();
 const port = process.env.PORT || 3001;
+
 const aiService = require('./aiService');
+const { generateFeedbackForAnswer } = require('./aiService'); 
 
 app.use(cors()); 
 app.use(express.json());
@@ -234,21 +236,34 @@ app.get('/api/submission-results/:submissionId', async (req, res) => {
     }
 });
 // Perplexity API 라우트에서 함수 호출 시
-app.post('/api/ai/generate-text', async (req, res) => {
-    const { prompt } = req.body;
-    if (!prompt) {
-        return res.status(400).json({ message: 'prompt가 필요합니다.' });
+app.post('/api/ai/generate-text', async (req, res) => { // 경로를 /api/ai/generate-feedback 으로 변경 (선택 사항)
+    const { questionText, correctAnswerOrKeywords, userAnswer, modelName } = req.body;
+
+    if (!questionText || !correctAnswerOrKeywords || !userAnswer) {
+        return res.status(400).json({ message: '문제 내용, 모범 답안/키워드, 사용자 답안이 모두 필요합니다.' });
     }
+
     try {
-        console.log(`Perplexity API 텍스트 생성 요청 받음, prompt: ${prompt}`);
-        // aiService 객체 안의 함수를 호출하도록 수정
-        const generatedText = await aiService.generateTextWithPerplexitySDK(prompt);
-        res.json({ generatedText });
+        console.log(`AI 피드백 생성 요청 받음: Q: "${questionText.substring(0,30)}...", UserA: "${userAnswer.substring(0,30)}..."`);
+        const feedback = await generateFeedbackForAnswer(
+            questionText,
+            correctAnswerOrKeywords,
+            userAnswer,
+            modelName // modelName은 프론트에서 선택적으로 보낼 수 있음 (기본값은 aiService.js에 설정)
+        );
+        res.json({ feedback });
     } catch (error) {
-        console.error('AI 텍스트 생성 API 오류:', error.message);
-        res.status(500).json({ message: 'AI 텍스트 생성 중 오류가 발생했습니다.', error: error.message });
+        const errorMessage = error.response && error.response.data 
+                           ? error.response.data.message || JSON.stringify(error.response.data) 
+                           : error.message;
+        console.error('AI 피드백 생성 API 오류:', errorMessage);
+        res.status(500).json({ message: 'AI 피드백 생성 중 오류가 발생했습니다.', error: errorMessage });
     }
 });
+
+
+
+
 // 서버 시작
 app.listen(port, () => {
     console.log(`백엔드 서버가 http://localhost:${port} 에서 실행 중입니다.`);
