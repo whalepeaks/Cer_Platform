@@ -21,6 +21,9 @@ const pool = mysql.createPool(dbConfig);
 const userAuthRoutes = require('./userAuth')(pool);
 app.use('/api/auth', userAuthRoutes); 
 
+const mockExamRoutes = require('./mockExamRoutes')(pool); 
+app.use('/api/mock-exam', mockExamRoutes);
+
 // 기본 API 라우트 (테스트용)
 app.get('/', (req, res) => {
     res.send('백엔드 서버에 오신 것을 환영합니다!');

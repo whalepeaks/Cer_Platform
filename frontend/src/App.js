@@ -32,6 +32,7 @@ function App() {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
     localStorage.removeItem('authToken');
+    
     // 필요하다면 홈페이지로 리다이렉트
     // navigate('/'); // App.js에서는 useNavigate를 직접 사용하기 어려우므로 AppNavbar 등에서 처리
   };
