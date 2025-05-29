@@ -24,12 +24,10 @@ function AppNavbar({ currentUser, onLogout }) { // props로 currentUser와 onLog
             
             {currentUser ? (
               // 로그인 상태일 때
-              <NavDropdown title={`${currentUser.username}님`} id="basic-nav-dropdown">
+                <NavDropdown title={`${currentUser.username}님`} id="basic-nav-dropdown">
                 <NavDropdown.Item as={Link} to="/my-info">내 정보</NavDropdown.Item>
                 <NavDropdown.Item as={Link} to="/my-records">내 기록</NavDropdown.Item>
-                <NavDropdown.Divider />
-                <NavDropdown.Item onClick={handleLogoutClick}>로그아웃</NavDropdown.Item>
-              </NavDropdown>
+                </NavDropdown>
             ) : (
               // 로그아웃 상태일 때
               <Nav.Link as={Link} to="/login">로그인</Nav.Link>

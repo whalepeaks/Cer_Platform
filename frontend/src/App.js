@@ -7,6 +7,8 @@ import AppFooter from './components/AppFooter';   // Footer
 import MockExamPage from './pages/MockExamPage'; // MockExamPage
 import RegisterPage from './pages/RegisterPage'; // 회원가입 페이지
 import LoginPage from './pages/LoginPage'; // LoginPage
+import ResultsPage from './pages/ResultsPage'; // 결과 페이지
+import MyRecordsPage from './pages/MyRecordsPage'; // 내 기록 페이지
 import Container from 'react-bootstrap/Container'; // Bootstrap 컨테이너 추가
 // import 'bootstrap/dist/css/bootstrap.min.css'; // 
 
@@ -32,7 +34,7 @@ function App() {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
     localStorage.removeItem('authToken');
-    
+
     // 필요하다면 홈페이지로 리다이렉트
     // navigate('/'); // App.js에서는 useNavigate를 직접 사용하기 어려우므로 AppNavbar 등에서 처리
   };
@@ -54,6 +56,8 @@ function App() {
             <Route
               path="/register"
               element={currentUser ? <Navigate to="/" replace /> : <RegisterPage />} />
+            <Route path="/results/:submissionId" element={currentUser ? <ResultsPage /> : <Navigate to="/login" replace />} /> 
+            <Route path="/my-records" element={currentUser ? <MyRecordsPage /> : <Navigate to="/login" replace />} /> 
             {/* 기타 필요한 라우트들 */}
           </Routes>
         </Container>

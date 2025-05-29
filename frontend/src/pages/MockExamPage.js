@@ -117,9 +117,14 @@ function MockExamPage() {
         throw new Error(data.message || '답안 제출에 실패했습니다.');
       }
       setSubmitMessage({ type: 'success', text: data.message });
-      // 성공 후 다음 행동 (예: 결과 페이지로 이동, 현재 페이지 유지 등)
-      // generateMockExam(); // 새 모의고사 자동 생성 (선택 사항)
-
+      if (data.submissionId) {
+        setTimeout(() => {
+          navigate(`/results/${data.submissionId}`); // 결과 페이지 경로로 이동
+        }, 1500); // 메시지 확인 시간
+      } else {
+        // submissionId가 없는 경우에 대한 예외 처리 (예: 메시지만 보여주고 현재 페이지 유지)
+        console.warn("Submission ID가 반환되지 않았습니다.");
+      }
     } catch (err) {
       setError(err.message);
       setSubmitMessage({ type: 'danger', text: err.message });

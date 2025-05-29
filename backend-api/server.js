@@ -146,7 +146,92 @@ app.get('/api/mock-exam/generate', async (req, res) => {
         res.status(500).json({ message: '모의고사 생성 중 서버 오류가 발생했습니다.' });
     }
 });
+// 내 기록 API
+app.get('/api/my-submissions', async (req, res) => {
+    // 임시: 실제로는 인증된 사용자의 ID를 사용해야 함
+    // 지금은 쿼리 파라미터로 userId를 받는다고 가정 (테스트용)
+    // 또는 로그인 시 프론트엔드가 저장한 userId를 요청에 포함시켜 보내는 방식
+    const { userId } = req.query; // 또는 req.user.userId (인증 구현 후)
 
+    if (!userId) {
+        return res.status(401).json({ message: "사용자 인증이 필요합니다." });
+    }
+
+    try {
+        const connection = await pool.getConnection();
+        const query = `
+            SELECT 
+                ms.id as submissionId, 
+                ms.submitted_at, 
+                et.certification_name as examTypeName,
+                (SELECT COUNT(*) FROM user_answers ua WHERE ua.submission_id = ms.id) as answeredQuestionsCount
+                -- 필요한 경우 점수 등 다른 정보도 추가
+            FROM mock_exam_submissions ms
+            JOIN exam_types et ON ms.exam_type_id = et.id
+            WHERE ms.user_id = ?
+            ORDER BY ms.submitted_at DESC;
+        `;
+        const [submissions] = await connection.query(query, [userId]);
+        connection.release();
+        res.json(submissions);
+    } catch (error) {
+        console.error('내 기록 조회 중 DB 오류:', error);
+        res.status(500).json({ message: '내 기록 조회 중 서버 오류가 발생했습니다.' });
+    }
+});
+// 결과 제출 API
+app.get('/api/submission-results/:submissionId', async (req, res) => {
+    const { submissionId } = req.params;
+    // 실제로는 이 submissionId가 현재 로그인한 사용자의 것인지 확인하는 로직도 필요합니다.
+
+    try {
+        const connection = await pool.getConnection();
+
+        // 1. 제출 정보 가져오기
+        const [submissionDetails] = await connection.query(
+            `SELECT ms.id as submissionId, ms.submitted_at, et.id as examTypeId, et.certification_name as examTypeName
+             FROM mock_exam_submissions ms
+             JOIN exam_types et ON ms.exam_type_id = et.id
+             WHERE ms.id = ?`,
+            [submissionId]
+        );
+
+        if (submissionDetails.length === 0) {
+            connection.release();
+            return res.status(404).json({ message: '해당 제출 기록을 찾을 수 없습니다.' });
+        }
+
+        // 2. 해당 제출에 대한 사용자의 답안 및 원본 문제 정보 가져오기
+        const query = `
+            SELECT 
+                q.id as questionId,
+                q.question_text,
+                q.correct_answer,
+                q.explanation,
+                q.question_type,
+                q.round_identifier,
+                q.question_number,
+                ua.submitted_answer,
+                ua.submitted_at as answer_submitted_at
+                -- 필요하다면 is_correct 같은 채점 결과도 추가
+            FROM user_answers ua
+            JOIN questions q ON ua.question_id = q.id
+            WHERE ua.submission_id = ?
+            ORDER BY q.question_number; -- 또는 문제 생성 시 순서대로
+        `;
+        const [answeredQuestions] = await connection.query(query, [submissionId]);
+        connection.release();
+
+        res.json({
+            submissionInfo: submissionDetails[0],
+            answeredQuestions: answeredQuestions
+        });
+
+    } catch (error) {
+        console.error(`제출 결과 조회(ID: ${submissionId}) 중 DB 오류:`, error);
+        res.status(500).json({ message: '제출 결과 조회 중 서버 오류가 발생했습니다.' });
+    }
+});
 
 // 서버 시작
 app.listen(port, () => {
