@@ -9,6 +9,7 @@ const port = process.env.PORT || 3001;
 const aiService = require('./aiService');
 const { generateFeedbackForAnswer } = require('./aiService'); 
 
+
 app.use(cors()); 
 app.use(express.json());
 
@@ -236,28 +237,54 @@ app.get('/api/submission-results/:submissionId', async (req, res) => {
     }
 });
 // Perplexity API 라우트에서 함수 호출 시
-app.post('/api/ai/generate-text', async (req, res) => { // 경로를 /api/ai/generate-feedback 으로 변경 (선택 사항)
-    const { questionText, correctAnswerOrKeywords, userAnswer, modelName } = req.body;
+app.post('/api/ai/generate-text', async (req, res) => {
+    // 프론트에서 "상세 피드백"을 원할 경우 필요한 모든 데이터를 body에 담아 보냅니다.
+    const { questionText, correctAnswerOrKeywords, userAnswer, prompt, modelName } = req.body;
 
-    if (!questionText || !correctAnswerOrKeywords || !userAnswer) {
-        return res.status(400).json({ message: '문제 내용, 모범 답안/키워드, 사용자 답안이 모두 필요합니다.' });
-    }
+    // 어떤 종류의 AI 텍스트 생성을 원하는지 구분할 방법이 필요할 수 있지만,
+    // 지금은 "상세 피드백" 생성 기능에 집중합니다.
+    // 만약 단순 prompt만 오면 일반 텍스트 생성, 세부 정보가 다 오면 상세 피드백 생성 등으로 분기할 수도 있습니다.
+    // 여기서는 상세 피드백을 위한 정보가 모두 왔다고 가정합니다.
 
-    try {
-        console.log(`AI 피드백 생성 요청 받음: Q: "${questionText.substring(0,30)}...", UserA: "${userAnswer.substring(0,30)}..."`);
-        const feedback = await generateFeedbackForAnswer(
-            questionText,
-            correctAnswerOrKeywords,
-            userAnswer,
-            modelName // modelName은 프론트에서 선택적으로 보낼 수 있음 (기본값은 aiService.js에 설정)
-        );
-        res.json({ feedback });
-    } catch (error) {
-        const errorMessage = error.response && error.response.data 
-                           ? error.response.data.message || JSON.stringify(error.response.data) 
-                           : error.message;
-        console.error('AI 피드백 생성 API 오류:', errorMessage);
-        res.status(500).json({ message: 'AI 피드백 생성 중 오류가 발생했습니다.', error: errorMessage });
+    if (questionText && correctAnswerOrKeywords && userAnswer) {
+        // 상세 피드백 생성 요청
+        try {
+            console.log(`AI 상세 피드백 생성 요청 받음: Q:"${questionText.substring(0,20)}...", UserA:"${userAnswer.substring(0,20)}..."`);
+            
+            // aiService 객체 안의 generateText 함수 (실제로는 generateDetailedTextForAnswer)를 호출
+            const generatedText = await aiService.generateText( // 👈 여기서 호출하는 함수 이름 통일
+                questionText,
+                correctAnswerOrKeywords,
+                userAnswer,
+                modelName
+            );
+            
+            // 프론트엔드가 일관되게 받을 수 있도록 응답 키를 'generatedText'로 통일
+            res.json({ generatedText: generatedText });
+
+        } catch (error) {
+            const errorMessage = error.message || 'AI 상세 피드백 생성 중 알 수 없는 오류';
+            console.error('AI 상세 피드백 생성 API 라우트 오류:', errorMessage);
+            res.status(500).json({ message: 'AI 상세 피드백 생성 중 서버 오류가 발생했습니다.', error: errorMessage });
+        }
+    } else if (prompt) {
+        // 일반적인 프롬프트만으로 텍스트 생성 요청 (선택적 기능)
+        try {
+            console.log(`일반 AI 텍스트 생성 요청 받음, prompt: ${prompt.substring(0,50)}...`);
+            // 만약 aiService에 일반 텍스트 생성 함수가 별도로 있다면 그것을 호출
+            // 여기서는 일단 상세 피드백 함수를 재활용하되, 프롬프트 구성이 달라야 함
+            // 이 부분은 지금 주석 처리하고, 상세 피드백 기능에 집중
+            // const generatedText = await aiService.generateText(prompt, modelName); // 일반 프롬프트용 함수 호출
+            // res.json({ generatedText });
+            res.status(400).json({ message: '일반 텍스트 생성은 현재 지원되지 않거나, 상세 피드백을 위한 정보가 부족합니다.' });
+
+        } catch (error) {
+            const errorMessage = error.message || '일반 AI 텍스트 생성 중 알 수 없는 오류';
+            console.error('일반 AI 텍스트 생성 API 라우트 오류:', errorMessage);
+            res.status(500).json({ message: '일반 AI 텍스트 생성 중 서버 오류가 발생했습니다.', error: errorMessage });
+        }
+    } else {
+        return res.status(400).json({ message: '요청 본문에 prompt 또는 (questionText, correctAnswerOrKeywords, userAnswer) 정보가 필요합니다.' });
     }
 });
 
