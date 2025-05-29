@@ -3,9 +3,9 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import AppNavbar from './components/AppNavbar'; // Navbar
 import MainContent from './components/MainContent'; // MainContent
 import AppFooter from './components/AppFooter';   // Footer
-import QuestionPage from './pages/QuestionPage';   // 새로 생성하는 문제 페이지
+// import QuestionPage from './pages/QuestionPage';   // 회차별 문제 페이지
 import MockExamPage from './pages/MockExamPage'; // MockExamPage
-// import RegisterPage from './pages/RegisterPage'; // 회원가입 페이지
+import RegisterPage from './pages/RegisterPage'; // 회원가입 페이지
 import LoginPage from './pages/LoginPage'; // LoginPage
 import Container from 'react-bootstrap/Container'; // Bootstrap 컨테이너 추가
 // import 'bootstrap/dist/css/bootstrap.min.css'; // 
@@ -40,18 +40,19 @@ function App() {
   return (
     <Router>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        {/* AppNavbar에 currentUser와 handleLogout 전달 */}
         <AppNavbar currentUser={currentUser} onLogout={handleLogout} />
         <Container as="main" className="py-4" style={{ flex: 1 }}>
           <Routes>
             <Route path="/" element={<MainContent />} />
-            <Route path="/questions/:examTypeId/:roundIdentifier" element={<QuestionPage />} />
-            <Route path="/mock-exam" element={<MockExamPage />} />
+            <Route path="/mock-exam/:examTypeId" element={<MockExamPage />} /> 
+           {/* <Route path="/questions/:examTypeId/:roundIdentifier" element={<QuestionPage />} /> */}
+            <Route path="/mock-exam" element={currentUser ? <MockExamPage /> : <Navigate to="/login" replace />} />
             <Route 
               path="/login" 
-              element={currentUser ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />} 
-            />
-            {/* <Route path="/register" element={<RegisterPage />} /> */}
+              element={currentUser ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />} />
+            <Route
+              path="/register"
+              element={currentUser ? <Navigate to="/" replace /> : <RegisterPage />} />
             {/* 기타 필요한 라우트들 */}
           </Routes>
         </Container>

@@ -20,7 +20,7 @@ function AppNavbar({ currentUser, onLogout }) { // props로 currentUser와 onLog
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto">
             <Nav.Link as={Link} to="/">홈</Nav.Link>
-            <Nav.Link as={Link} to="/mock-exam">모의고사</Nav.Link>
+            {/* <Nav.Link as={Link} to="/mock-exam">모의고사</Nav.Link> */}
             
             {currentUser ? (
               // 로그인 상태일 때
