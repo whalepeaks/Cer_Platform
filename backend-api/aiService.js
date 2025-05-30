@@ -5,15 +5,7 @@ require('dotenv').config();
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 const PPLX_CHAT_COMPLETIONS_URL = 'https://api.perplexity.ai/chat/completions';
 
-/**
- * 사용자 답안, 문제, 모범 답안을 기반으로 AI 텍스트(해설/피드백)를 생성합니다.
- * @param {string} questionText - 원본 문제 내용
- * @param {string} correctAnswerOrKeywords - 모범 답안 또는 핵심 키워드
- * @param {string} userAnswer - 사용자가 제출한 답안
- * @param {string} modelName - 사용할 Perplexity 모델 이름
- * @returns {Promise<string>} 생성된 AI 텍스트
- */
-async function generateDetailedTextForAnswer(questionText, correctAnswerOrKeywords, userAnswer, modelName = "sonar-small-chat") { // 모델명은 Perplexity 문서에서 확인!
+async function generateFeedbackForAnswer(questionText, correctAnswerOrKeywords, userAnswer, modelName = "sonar-small-chat") { // <<-- Perplexity 문서에서 정확한 모델명 확인 필수!
   if (!PERPLEXITY_API_KEY) {
     console.error("Perplexity API 키가 .env 파일에 설정되지 않았습니다.");
     throw new Error("Perplexity API 키가 설정되지 않았습니다.");
@@ -39,7 +31,7 @@ ${userAnswer}
   `;
 
   try {
-    console.log(`Perplexity API 요청 시작 (상세 피드백). 모델: ${modelName}`);
+    console.log(`Perplexity API 피드백 요청 시작. 모델: ${modelName}`);
     const requestBody = {
       model: modelName,
       messages: [{ role: "user", content: prompt }],
@@ -53,30 +45,27 @@ ${userAnswer}
     const response = await axios.post(PPLX_CHAT_COMPLETIONS_URL, requestBody, { headers: headers });
 
     if (response.data && response.data.choices && response.data.choices[0] && response.data.choices[0].message && response.data.choices[0].message.content) {
-      const generatedText = response.data.choices[0].message.content.trim();
-      console.log("Perplexity API로부터 받은 피드백 (일부):", generatedText.substring(0, 100));
-      return generatedText;
+      const generatedFeedback = response.data.choices[0].message.content.trim();
+      console.log("Perplexity API로부터 받은 피드백 (일부):", generatedFeedback.substring(0, 100));
+      return generatedFeedback;
     } else {
       console.error("Perplexity API로부터 예상치 못한 응답 형식:", response.data);
       throw new Error("Perplexity API 응답 형식이 예상과 다릅니다.");
     }
   } catch (error) {
-    // ... (이전과 동일한 상세 오류 처리 로직) ...
-    console.error("Perplexity API 호출 중 오류 발생 (generateDetailedTextForAnswer):");
+    console.error("Perplexity API 호출 중 오류 발생 (generateFeedbackForAnswer):");
     if (error.response) {
       console.error("오류 상태 코드:", error.response.status);
       console.error("오류 응답 데이터:", error.response.data);
       const apiErrorMessage = error.response.data?.error?.message || error.response.data?.message || JSON.stringify(error.response.data);
       throw new Error(`Perplexity API 오류: ${error.response.status} - ${apiErrorMessage}`);
     } else if (error.request) {
-      console.error("Perplexity API로부터 응답을 받지 못했습니다:", error.request);
       throw new Error("Perplexity API로부터 응답을 받지 못했습니다.");
     } else {
-      console.error("Perplexity API 요청 설정 중 오류:", error.message);
       throw new Error(`Perplexity API 요청 설정 중 오류: ${error.message}`);
     }
   }
 }
 
-// server.js에서 일관된 이름으로 사용할 수 있도록 export
-module.exports = { generateText: generateDetailedTextForAnswer }; // "generateText"라는 이름으로 export
+// generateFeedbackForAnswer 함수 하나만 객체 형태로 export
+module.exports = { generateFeedbackForAnswer };

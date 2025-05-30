@@ -7,8 +7,6 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 const aiService = require('./aiService');
-const { generateFeedbackForAnswer } = require('./aiService'); 
-
 
 app.use(cors()); 
 app.use(express.json());
@@ -238,13 +236,8 @@ app.get('/api/submission-results/:submissionId', async (req, res) => {
 });
 // Perplexity API 라우트에서 함수 호출 시
 app.post('/api/ai/generate-text', async (req, res) => {
-    // 프론트에서 "상세 피드백"을 원할 경우 필요한 모든 데이터를 body에 담아 보냅니다.
-    const { questionText, correctAnswerOrKeywords, userAnswer, prompt, modelName } = req.body;
 
-    // 어떤 종류의 AI 텍스트 생성을 원하는지 구분할 방법이 필요할 수 있지만,
-    // 지금은 "상세 피드백" 생성 기능에 집중합니다.
-    // 만약 단순 prompt만 오면 일반 텍스트 생성, 세부 정보가 다 오면 상세 피드백 생성 등으로 분기할 수도 있습니다.
-    // 여기서는 상세 피드백을 위한 정보가 모두 왔다고 가정합니다.
+    const { questionText, correctAnswerOrKeywords, userAnswer, prompt, modelName } = req.body;
 
     if (questionText && correctAnswerOrKeywords && userAnswer) {
         // 상세 피드백 생성 요청
@@ -252,7 +245,7 @@ app.post('/api/ai/generate-text', async (req, res) => {
             console.log(`AI 상세 피드백 생성 요청 받음: Q:"${questionText.substring(0,20)}...", UserA:"${userAnswer.substring(0,20)}..."`);
             
             // aiService 객체 안의 generateText 함수 (실제로는 generateDetailedTextForAnswer)를 호출
-            const generatedText = await aiService.generateText( // 👈 여기서 호출하는 함수 이름 통일
+            const feedbackText = await aiService.generateFeedbackForAnswer(
                 questionText,
                 correctAnswerOrKeywords,
                 userAnswer,
@@ -260,7 +253,7 @@ app.post('/api/ai/generate-text', async (req, res) => {
             );
             
             // 프론트엔드가 일관되게 받을 수 있도록 응답 키를 'generatedText'로 통일
-            res.json({ generatedText: generatedText });
+            res.json({ feedback: feedbackText });
 
         } catch (error) {
             const errorMessage = error.message || 'AI 상세 피드백 생성 중 알 수 없는 오류';
