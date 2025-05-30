@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import { Container, Spinner, Alert, Card, ListGroup, Button } from 'react-bootstrap'; // Card 임포트 확인
+import ReactMarkdown from 'react-markdown'; 
+import remarkGfm from 'remark-gfm';
 
 const BACKEND_URL = 'http://localhost:3001'; // 로컬 백엔드 주소
 
@@ -188,9 +190,9 @@ function ResultsPage() {
                 <Card className="mt-2">
                   <Card.Header as="h6" style={{backgroundColor: '#e6f7ff'}}>AI 자동 해설</Card.Header>
                   <Card.Body>
-                    <Card.Text style={{ whiteSpace: 'pre-wrap' }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {aiFeedbacks[item.questionId]}
-                    </Card.Text>
+                    </ReactMarkdown>
                   </Card.Body>
                 </Card>
               )}
