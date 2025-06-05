@@ -5,7 +5,7 @@ require('dotenv').config();
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 const PPLX_CHAT_COMPLETIONS_URL = 'https://api.perplexity.ai/chat/completions';
 
-async function generateFeedbackForAnswer(questionText, correctAnswerOrKeywords, userAnswer, modelName = "sonar-small-chat") { // <<-- Perplexity 문서에서 정확한 모델명 확인 필수!
+async function generateFeedbackForAnswer(questionText, correctAnswerOrKeywords, userAnswer, modelName = "sonar-pro") { // <<-- Perplexity 문서에서 정확한 모델명 확인 필수!
   if (!PERPLEXITY_API_KEY) {
     console.error("Perplexity API 키가 .env 파일에 설정되지 않았습니다.");
     throw new Error("Perplexity API 키가 설정되지 않았습니다.");
@@ -13,15 +13,16 @@ async function generateFeedbackForAnswer(questionText, correctAnswerOrKeywords, 
 
   const prompt = `
 당신은 정보보안에 대한 전문가이자 출제위원입니다. 주어진 [문제], [모범 답안/핵심 키워드], 
-그리고 [사용자 답안]을 바탕으로, 사용자가 실제 자격증 시험에서 더 좋은 점수를 받을 수 있도록 간략하게 피드백을 제공해주세요.
+그리고 [사용자 답안]을 바탕으로, 사용자가 실제 자격증 시험에서 더 좋은 점수를 받을 수 있도록 피드백을 제공해주세요.
 피드백은 객관적인 사실을 기반으로 문제의 출제의도를 파악하고 키워드를 중심으로 학습할 수 있게 해주세요.
-문제와 정답에 대한 간략한 해설과 같은 형식의 문제를 파악하기 위한 키워드를 짧게 정리해주세요.
+문제와 정답에 대한 전체적인 개념과 해설을 간략하게 서술해주세요.
+비교할수 있는것이 있거나 추가로 학습이 필요한 경우 간략하게 설명해주세요.
 메타인지 파악을 위해 정확한 개념을 파악 했는지 확인해주세요.
 피드백은 다음 항목을 포함하여 마크다운형식으로 한국어로 작성해주세요.
 
-1. [개념과 해설]
-2. [보완할 점 및 개선 방안]
-3. [총평 및 키워드 학습 조언]
+## [개념과 해설]
+## [보완할 점 및 개선 방안]
+## [총평 및 키워드 학습 조언]
 ---
 [문제]:
 ${questionText}

@@ -59,7 +59,7 @@ function ResultsPage() {
 
     setLoadingAiFeedbackFor(questionItem.questionId); // 해당 문제 AI 해설 로딩 시작
     setAiFeedbacks(prev => ({ ...prev, [questionItem.questionId]: undefined })); // 이전 해설/오류 메시지 초기화
-    const modelToUse = "sonar";
+    const modelToUse = "sonar-pro";
     const rawBody = JSON.stringify({
       questionText: questionItem.question_text,
       correctAnswerOrKeywords: questionItem.correct_answer,
