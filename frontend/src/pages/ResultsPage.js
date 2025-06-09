@@ -4,6 +4,7 @@ import { useParams, Link as RouterLink } from 'react-router-dom';
 import { Container, Spinner, Alert, Card, ListGroup, Button, Collapse } from 'react-bootstrap'; // Card 임포트 확인
 import ReactMarkdown from 'react-markdown'; 
 import remarkGfm from 'remark-gfm';
+import { toKSTString } from '../utils/formatDate';
 
 const BACKEND_URL = 'http://localhost:3001'; // 로컬 백엔드 주소
 
@@ -117,6 +118,7 @@ function ResultsPage() {
             body: JSON.stringify({
                 originalQuestionId: questionId,
                 userId: userId,
+                questionType: questionItem.question_type
             }),
         });
 
@@ -151,7 +153,7 @@ function ResultsPage() {
   return (
     <Container className="mt-4">
       <h2>모의고사 결과: {submissionInfo.examTypeName}</h2>
-      <p>제출일: {new Date(submissionInfo.submitted_at).toLocaleString()}</p>
+      <p>제출일: {toKSTString(submissionInfo.submitted_at)}</p>
       <hr />
       <h3>제출한 답안 및 문제</h3>
       <ListGroup as="ol" numbered className="mt-3">

@@ -16,7 +16,8 @@ const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    charset: 'utf8mb4'
+    charset: 'utf8mb4',
+    timezone: '+09:00'
 };
 
 const pool = mysql.createPool(dbConfig);
@@ -151,11 +152,7 @@ app.get('/api/mock-exam/generate', async (req, res) => {
 });
 // 내 기록 API
 app.get('/api/my-submissions', async (req, res) => {
-    // 임시: 실제로는 인증된 사용자의 ID를 사용해야 함
-    // 지금은 쿼리 파라미터로 userId를 받는다고 가정 (테스트용)
-    // 또는 로그인 시 프론트엔드가 저장한 userId를 요청에 포함시켜 보내는 방식
-    const { userId } = req.query; // 또는 req.user.userId (인증 구현 후)
-
+    const { userId } = req.query; 
     if (!userId) {
         return res.status(401).json({ message: "사용자 인증이 필요합니다." });
     }
@@ -185,7 +182,6 @@ app.get('/api/my-submissions', async (req, res) => {
 // 결과 제출 API
 app.get('/api/submission-results/:submissionId', async (req, res) => {
     const { submissionId } = req.params;
-    // 실제로는 이 submissionId가 현재 로그인한 사용자의 것인지 확인하는 로직도 필요합니다.
 
     try {
         const connection = await pool.getConnection();
@@ -283,7 +279,6 @@ app.post('/api/ai/generate-text', async (req, res) => {
 });
 // ai해설 DB 저장 API
 app.post('/api/ai/save-feedback', async (req, res) => {
-    // 프론트엔드로부터 submissionId, questionId, 그리고 저장할 aiComment를 받습니다.
     const { submissionId, questionId, aiComment } = req.body;
     console.log("백엔드 /api/ai/save-feedback 요청 받음, body:", req.body);
 
@@ -379,7 +374,6 @@ app.post('/api/ai/feedback', async (req, res) => {
             questionData.question_text,
             questionData.correct_answer,
             questionData.submitted_answer,
-            "sonar-pro" // 사용할 모델명
         );
 
         // 3-3. 생성된 해설을 DB에 저장(UPDATE)
@@ -405,9 +399,7 @@ app.post('/api/ai/feedback', async (req, res) => {
 });
 // ai해설기반 새로운 문제 생성 api
 app.post('/api/ai/generate-and-save-question', async (req, res) => {
-    // 프론트에서 원본 문제 ID와 사용자 ID를 받아옵니다.
-    // 실제로는 req.user.id 와 같이 인증된 사용자 정보를 사용하는 것이 더 안전합니다.
-    const { originalQuestionId, userId } = req.body; 
+    const { originalQuestionId, userId, questionType} = req.body; 
 
     if (!originalQuestionId || !userId) {
         return res.status(400).json({ message: "원본 문제 ID와 사용자 ID가 필요합니다." });
@@ -429,20 +421,19 @@ app.post('/api/ai/generate-and-save-question', async (req, res) => {
         const originalQuestionText = originalQuestions[0].question_text;
         
         // 2. AI 서비스를 호출하여 새로운 문제 생성 (aiService.js에 관련 함수가 있다고 가정)
-        // 이 부분의 프롬프트는 "유사 문제 생성"에 맞게 잘 설계해야 합니다.
-        const newProblem = await aiService.generateSimilarQuestion(originalQuestionText);
-        // newProblem은 { question_text, correct_answer, explanation } 형태의 객체로 반환된다고 가정
+        const newProblem = await aiService.generateSimilarQuestion(originalQuestionText, questionType);
 
         // 3. AI가 생성한 새로운 문제를 `ai_generated_questions` 테이블에 저장!
         const insertQuery = `
             INSERT INTO ai_generated_questions 
-                (question_text, correct_answer, explanation, original_question_id, created_by_user_id)
-            VALUES (?, ?, ?, ?, ?);
+                (question_text, correct_answer, explanation, question_type, original_question_id, created_by_user_id)
+            VALUES (?, ?, ?, ?, ?, ?);
         `;
         await connection.query(insertQuery, [
             newProblem.question_text,
             newProblem.correct_answer,
             newProblem.explanation,
+            newProblem.question_type, 
             originalQuestionId,
             userId
         ]);

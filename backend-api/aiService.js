@@ -33,7 +33,7 @@ ${userAnswer}
   `;
 
   try {
-    console.log(`Perplexity AI 해설설 문제 생성 요청 시작. 모델: ${modelName}`);
+    console.log(`Perplexity AI 해설 문제 생성 요청 시작. 모델: ${modelName}`);
     const requestBody = {
       model: modelName,
       messages: [{ role: "user", content: prompt }],
@@ -64,7 +64,7 @@ ${userAnswer}
   }
 }
 
-async function generateSimilarQuestion(originalQuestionText, modelName = "sonar-pro") {
+async function generateSimilarQuestion(originalQuestionText, questionType, modelName = "sonar-pro") {
   if (!PERPLEXITY_API_KEY) {
     throw new Error("Perplexity API 키가 .env 파일에 설정되지 않았습니다.");
   }
@@ -72,15 +72,22 @@ async function generateSimilarQuestion(originalQuestionText, modelName = "sonar-
   const prompt = `
     당신은 정보보안기사 자격증의 전문 출제위원입니다.
     아래에 제시된 [원본 문제]를 분석하여, 동일한 핵심 개념을 테스트하지만 상황이나 형식이 다른 새로운 유사 문제 1개를 만들어주세요.
-    단답형, 서술형, 실무형 
+
+    [원본 문제 정보]:
+    - 문제 유형: ${questionType} 
+    - 문제 내용: ${originalQuestionText}
+
+    [생성 규칙]:
+    1. 새로 만드는 문제의 유형은 원본 문제의 유형과 동일한 '${questionType}' 이어야 합니다.
+    2. '${questionType}' 유형의 특징을 잘 살려서 문제를 만들어주세요.
 
     **매우 중요:** 답변은 반드시 아래와 같은 JSON 형식으로만 생성해야 합니다. 다른 설명은 절대 추가하지 마세요.
     {
       "question_text": "새롭게 생성된 문제의 내용을 여기에 작성하세요.",
       "correct_answer": "새롭게 생성된 문제의 정답을 여기에 작성하세요.",
-      "explanation": "새롭게 생성된 문제의 해설을 여기에 작성하세요."
+      "explanation": "새롭게 생성된 문제의 해설을 여기에 작성하세요.",
+      "question_type": "${questionType}"
     }
-
     ---
     [원본 문제]:
     ${originalQuestionText}
