@@ -16,6 +16,7 @@ const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
+    charset: 'utf8mb4'
 };
 
 const pool = mysql.createPool(dbConfig);
@@ -280,8 +281,128 @@ app.post('/api/ai/generate-text', async (req, res) => {
         return res.status(400).json({ message: '요청 본문에 prompt 또는 (questionText, correctAnswerOrKeywords, userAnswer) 정보가 필요합니다.' });
     }
 });
+// ai해설 DB 저장 API
+app.post('/api/ai/save-feedback', async (req, res) => {
+    // 프론트엔드로부터 submissionId, questionId, 그리고 저장할 aiComment를 받습니다.
+    const { submissionId, questionId, aiComment } = req.body;
+    console.log("백엔드 /api/ai/save-feedback 요청 받음, body:", req.body);
+
+    if (submissionId === undefined || questionId === undefined || aiComment === undefined) {
+        return res.status(400).json({ message: '저장을 위한 필수 정보(submissionId, questionId, aiComment)가 부족합니다.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // user_answers 테이블의 해당 레코드에 ai_comment를 UPDATE 합니다.
+        const [updateResult] = await connection.query(
+            'UPDATE user_answers SET ai_comment = ? WHERE submission_id = ? AND question_id = ?',
+            [aiComment, parseInt(submissionId), parseInt(questionId)]
+        );
+        
+        console.log(`AI 해설 DB UPDATE 결과 (affectedRows):`, updateResult.affectedRows);
+
+        if (updateResult.affectedRows > 0) {
+            console.log(`DB 저장 성공: submissionId=${submissionId}, questionId=${questionId}`);
+            res.status(200).json({ message: "AI 해설이 성공적으로 저장되었습니다." });
+        } else {
+            console.warn(`DB 저장 실패: UPDATE 대상 행을 찾지 못했습니다. submissionId=${submissionId}, questionId=${questionId}`);
+            // 프론트엔드에서 반드시 처리해야 할 오류는 아니므로, 404 대신 다른 상태 코드를 고려하거나,
+            // 성공으로 응답하되 서버 로그에 경고를 남길 수 있습니다.
+            res.status(404).json({ message: "해설을 저장할 답안 기록을 찾을 수 없습니다." });
+        }
+    } catch (error) {
+        const errorMessage = error.message || 'AI 해설 저장 중 알 수 없는 오류';
+        console.error('AI 해설 저장 API 오류:', errorMessage, error.stack);
+        res.status(500).json({ message: 'AI 해설 저장 중 서버 오류가 발생했습니다.', error: errorMessage });
+    } finally {
+        if (connection) {
+            console.log("DB 커넥션 반납 (save-feedback API).");
+            connection.release();
+        }
+    }
+});
+// 통합 api
+app.post('/api/ai/feedback', async (req, res) => {
+    const { submissionId, questionId } = req.body;
+
+    if (!submissionId || !questionId) {
+        return res.status(400).json({ message: "submissionId와 questionId는 필수입니다." });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 1. DB에서 기존 AI 해설(ai_comment)이 있는지 먼저 확인
+        const [existingAnswers] = await connection.query(
+            `SELECT ai_comment FROM user_answers WHERE submission_id = ? AND question_id = ?`,
+            [submissionId, questionId]
+        );
+
+        // 해당 제출 기록이 없는 경우
+        if (existingAnswers.length === 0) {
+            return res.status(404).json({ message: "답안 기록을 찾을 수 없습니다." });
+        }
+
+        const existingFeedback = existingAnswers[0].ai_comment;
+
+        // 2. 만약 DB에 해설이 이미 존재하면, 그걸 바로 반환
+        if (existingFeedback) {
+            console.log(`[DB Cache Hit] 기존 AI 해설 반환: submissionId=${submissionId}, questionId=${questionId}`);
+            return res.json({ feedback: existingFeedback });
+        }
+
+        // 3. DB에 해설이 없다면, AI 해설 생성 절차 시작
+        console.log(`[DB Cache Miss] 새로운 AI 해설 생성 시작: submissionId=${submissionId}, questionId=${questionId}`);
+        
+        // 3-1. 해설 생성에 필요한 정보 (문제, 모범답안, 사용자 답안)를 DB에서 가져오기
+        const [questionDataRows] = await connection.query(
+            `SELECT
+                q.question_text,
+                q.correct_answer,
+                ua.submitted_answer
+             FROM user_answers ua
+             JOIN questions q ON ua.question_id = q.id
+             WHERE ua.submission_id = ? AND ua.question_id = ?`,
+            [submissionId, questionId]
+        );
+
+        if (questionDataRows.length === 0) {
+            return res.status(404).json({ message: "해설 생성에 필요한 문제 정보를 찾을 수 없습니다." });
+        }
+        const questionData = questionDataRows[0];
+
+        // 3-2. Perplexity API를 통해 새로운 해설 생성
+        const newFeedback = await aiService.generateFeedbackForAnswer(
+            questionData.question_text,
+            questionData.correct_answer,
+            questionData.submitted_answer,
+            "sonar-pro" // 사용할 모델명
+        );
+
+        // 3-3. 생성된 해설을 DB에 저장(UPDATE)
+        await connection.query(
+            `UPDATE user_answers SET ai_comment = ? WHERE submission_id = ? AND question_id = ?`,
+            [newFeedback, submissionId, questionId]
+        );
+        console.log(`[DB Save] 생성된 AI 해설 DB 저장 완료: submissionId=${submissionId}, questionId=${questionId}`);
 
 
+        // 4. 새로 생성 및 저장된 해설을 프론트엔드로 반환
+        res.json({ feedback: newFeedback });
+
+    } catch (error) {
+        const errorMessage = error.message || 'AI 해설 처리 중 알 수 없는 오류';
+        console.error('AI 해설 통합 API 오류:', error);
+        res.status(500).json({ message: 'AI 해설 처리 중 서버 오류가 발생했습니다.', error: errorMessage });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+});
 
 
 // 서버 시작

@@ -50,68 +50,38 @@ function ResultsPage() {
   }, [submissionId]);
 
   // AI 맞춤 해설 가져오기 함수
-  const handleGetAiFeedback = async (questionItem) => {
-    // questionItem 객체에는 questionId, question_text, correct_answer, submitted_answer 등이 있어야 함
-    if (!questionItem || !questionItem.questionId || !questionItem.submitted_answer || !questionItem.correct_answer || !questionItem.question_text) {
-      setAiFeedbacks(prev => ({ ...prev, [questionItem.questionId]: "AI 해설 생성에 필요한 정보가 부족합니다." }));
+   const handleGetAiFeedback = async (questionItem) => {
+    // submissionId와 questionId가 있는지 먼저 확인
+    if (!submissionId || !questionItem || questionItem.questionId === undefined) {
+      console.error("AI 해설 요청 실패: 필수 정보 부족", { submissionId, questionItem });
+      setAiFeedbacks(prev => ({ ...prev, [questionItem.questionId]: "오류: 해설 요청에 필요한 정보가 부족합니다." }));
       return;
     }
 
-    setLoadingAiFeedbackFor(questionItem.questionId); // 해당 문제 AI 해설 로딩 시작
-    setAiFeedbacks(prev => ({ ...prev, [questionItem.questionId]: undefined })); // 이전 해설/오류 메시지 초기화
-    const modelToUse = "sonar-pro";
-    const rawBody = JSON.stringify({
-      questionText: questionItem.question_text,
-      correctAnswerOrKeywords: questionItem.correct_answer,
-      userAnswer: questionItem.submitted_answer,
-      modelName: modelToUse // Postman 요청처럼 modelName 포함
-    });
-
-    const requestOptions = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Postman에서 자동으로 추가되는 다른 헤더들(Host, Content-Length 등)은
-        // fetch에서는 보통 자동으로 처리되므로 명시적으로 넣을 필요는 없습니다.
-        // 하지만 Cache-Control 등 특정 헤더가 문제 해결에 영향을 준다면 추가해볼 수 있습니다.
-      },
-      body: rawBody,
-      // redirect: "follow" // fetch의 기본 동작이므로 보통 생략 가능
-    };
-
-    const apiUrl = `${BACKEND_URL}/api/ai/generate-text`;
-    console.log("AI 해설 요청 URL:", apiUrl);
-    console.log("AI 해설 요청 Body:", rawBody); // 보내는 데이터 확인
+    setLoadingAiFeedbackFor(questionItem.questionId); // 로딩 시작
+    setAiFeedbacks(prev => ({ ...prev, [questionItem.questionId]: undefined })); // 이전 해설 초기화
 
     try {
-      const response = await fetch(apiUrl, requestOptions);
+      // 1. 새로 만든 통합 API('/api/ai/feedback')를 호출합니다.
+      const response = await fetch(`${BACKEND_URL}/api/ai/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          submissionId: parseInt(submissionId), // URL 파라미터에서 가져온 submissionId
+          questionId: questionItem.questionId,
+        }),
+      });
 
-      // 응답을 먼저 텍스트로 받아봅니다 (디버깅을 위해).
-      const responseText = await response.text();
-      console.log("Raw API Response:", responseText);
+      const data = await response.json();
 
       if (!response.ok) {
-        // 응답이 JSON이 아닐 수도 있으므로, 텍스트 기반으로 오류 메시지 생성 시도
-        let errorMessage = `AI 해설 생성 중 HTTP 오류: ${response.status} - ${response.statusText}`;
-        try {
-          const errorData = JSON.parse(responseText); // 여기서 오류가 나면 catch로 감
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // JSON 파싱 실패 시 responseText를 그대로 오류 메시지로 활용
-          if (responseText.trim().startsWith("<!DOCTYPE html") || responseText.trim().startsWith("<html")) {
-            errorMessage = "서버에서 HTML 오류 페이지를 반환했습니다. 백엔드 로그를 확인하세요.";
-          } else {
-            errorMessage = responseText || errorMessage;
-          }
-        }
-        throw new Error(errorMessage);
+        throw new Error(data.message || 'AI 해설을 가져오는 데 실패했습니다.');
       }
-
-      // 응답이 정상적(ok)이면 JSON으로 파싱 시도
-      const data = JSON.parse(responseText); // 이미 텍스트로 받았으므로 다시 파싱
       
-      // 백엔드 응답 키가 'feedback' 또는 'generatedText' 일 수 있으므로 둘 다 확인
-      const feedbackText = data.feedback || data.generatedText;
+      // 2. 백엔드가 모든 처리를 끝내고 보내준 최종 해설을 화면 상태에 저장합니다.
+      const feedbackText = data.feedback;
       if (feedbackText === undefined) {
           throw new Error("API 응답에서 해설 텍스트를 찾을 수 없습니다.");
       }
@@ -119,11 +89,11 @@ function ResultsPage() {
 
     } catch (err) {
       console.error("AI Feedback 요청 오류:", err);
-      setAiFeedbacks(prev => ({ ...prev, [questionItem.questionId]: `해설 생성 실패: ${err.message}` }));
+      setAiFeedbacks(prev => ({ ...prev, [questionItem.questionId]: `해설을 가져오는 데 실패했습니다: ${err.message}` }));
     } finally {
-      setLoadingAiFeedbackFor(null);
+      setLoadingAiFeedbackFor(null); // 로딩 종료
     }
-};
+  };
 
   if (loading && !resultData) { // 초기 페이지 데이터 로딩
     return <Container className="text-center mt-5"><Spinner animation="border" /></Container>;
