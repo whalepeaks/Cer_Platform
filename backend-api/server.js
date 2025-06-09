@@ -403,6 +403,62 @@ app.post('/api/ai/feedback', async (req, res) => {
         }
     }
 });
+// ai해설기반 새로운 문제 생성 api
+app.post('/api/ai/generate-and-save-question', async (req, res) => {
+    // 프론트에서 원본 문제 ID와 사용자 ID를 받아옵니다.
+    // 실제로는 req.user.id 와 같이 인증된 사용자 정보를 사용하는 것이 더 안전합니다.
+    const { originalQuestionId, userId } = req.body; 
+
+    if (!originalQuestionId || !userId) {
+        return res.status(400).json({ message: "원본 문제 ID와 사용자 ID가 필요합니다." });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 1. 원본 문제 정보를 DB에서 가져와 AI 프롬프트에 활용합니다.
+        const [originalQuestions] = await connection.query(
+            'SELECT question_text FROM questions WHERE id = ?',
+            [originalQuestionId]
+        );
+
+        if (originalQuestions.length === 0) {
+            return res.status(404).json({ message: "원본 문제를 찾을 수 없습니다." });
+        }
+        const originalQuestionText = originalQuestions[0].question_text;
+        
+        // 2. AI 서비스를 호출하여 새로운 문제 생성 (aiService.js에 관련 함수가 있다고 가정)
+        // 이 부분의 프롬프트는 "유사 문제 생성"에 맞게 잘 설계해야 합니다.
+        const newProblem = await aiService.generateSimilarQuestion(originalQuestionText);
+        // newProblem은 { question_text, correct_answer, explanation } 형태의 객체로 반환된다고 가정
+
+        // 3. AI가 생성한 새로운 문제를 `ai_generated_questions` 테이블에 저장!
+        const insertQuery = `
+            INSERT INTO ai_generated_questions 
+                (question_text, correct_answer, explanation, original_question_id, created_by_user_id)
+            VALUES (?, ?, ?, ?, ?);
+        `;
+        await connection.query(insertQuery, [
+            newProblem.question_text,
+            newProblem.correct_answer,
+            newProblem.explanation,
+            originalQuestionId,
+            userId
+        ]);
+        console.log("성공: AI 생성 문제가 DB에 저장되었습니다.");
+
+        // 4. 저장 후, 생성된 문제를 프론트엔드로 보내 바로 보여줍니다.
+        res.status(201).json(newProblem);
+
+    } catch (error) {
+        console.error('AI 유사 문제 생성 및 저장 API 오류:', error);
+        res.status(500).json({ message: '서버에서 오류가 발생했습니다.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
 
 
 // 서버 시작
