@@ -20,6 +20,12 @@ const dbConfig = {
     timezone: '+09:00'
 };
 
+const SCORE_MAP = {
+  '단답형': 3,
+  '서술형': 12,
+  '실무형': 16
+};
+
 const pool = mysql.createPool(dbConfig);
 
 const userAuthRoutes = require('./userAuth')(pool);
@@ -211,8 +217,8 @@ app.get('/api/submission-results/:submissionId', async (req, res) => {
                 q.round_identifier,
                 q.question_number,
                 ua.submitted_answer,
-                ua.submitted_at as answer_submitted_at
-                -- 필요하다면 is_correct 같은 채점 결과도 추가
+                ua.submitted_at as answer_submitted_at,
+                ua.ai_score
             FROM user_answers ua
             JOIN questions q ON ua.question_id = q.id
             WHERE ua.submission_id = ?
@@ -445,6 +451,93 @@ app.post('/api/ai/generate-and-save-question', async (req, res) => {
     } catch (error) {
         console.error('AI 유사 문제 생성 및 저장 API 오류:', error);
         res.status(500).json({ message: '서버에서 오류가 발생했습니다.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+// AI 점수채점
+app.post('/api/ai/score-answer', async (req, res) => {
+    const { submissionId, questionId } = req.body;
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 1. 채점에 필요한 정보 (문제, 정답, 사용자 답안)를 DB에서 가져오기
+        const [rows] = await connection.query(
+            `SELECT q.question_text, q.correct_answer, ua.submitted_answer 
+             FROM user_answers ua 
+             JOIN questions q ON ua.question_id = q.id 
+             WHERE ua.submission_id = ? AND ua.question_id = ?`,
+            [submissionId, questionId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: '채점할 답변을 찾을 수 없습니다.' });
+        }
+        const data = rows[0];
+
+        // 2. AI 서비스 호출하여 점수 받기
+        const score = await aiService.getAiScoreForAnswer(
+            data.question_text,
+            data.correct_answer,
+            data.submitted_answer
+        );
+
+        // 3. 받은 점수를 DB에 업데이트
+        await connection.query(
+            'UPDATE user_answers SET ai_score = ? WHERE submission_id = ? AND question_id = ?',
+            [score, submissionId, questionId]
+        );
+
+        console.log(`채점 완료 (S_ID: ${submissionId}, Q_ID: ${questionId}): ${score}점`);
+        res.status(200).json({ score });
+
+    } catch (error) {
+        res.status(500).json({ message: 'AI 채점 중 서버 오류가 발생했습니다.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// 최종점수 확인
+app.get('/api/results/:submissionId/final-score', async (req, res) => {
+    const { submissionId } = req.params;
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 1. 해당 제출 건의 모든 답변과 문제 유형, AI 점수를 불러옵니다.
+        const [answers] = await connection.query(
+            `SELECT q.question_type, ua.ai_score 
+             FROM user_answers ua
+             JOIN questions q ON ua.question_id = q.id
+             WHERE ua.submission_id = ? AND ua.ai_score IS NOT NULL`, // 채점된 것만
+            [submissionId]
+        );
+
+        if (answers.length === 0) {
+            return res.status(400).json({ message: '채점된 답변이 없습니다. 각 문제에 대해 AI 채점을 먼저 진행해주세요.' });
+        }
+        
+        // 2. 각 답변의 점수를 가중치에 맞게 계산하여 합산합니다.
+        let finalScore = 0;
+        for (const answer of answers) {
+            const maxPoints = SCORE_MAP[answer.question_type]; // 배점표에서 만점 가져오기
+            const aiScore = answer.ai_score;
+            
+            if (maxPoints !== undefined && aiScore !== null) {
+                const calculatedScore = (aiScore / 100) * maxPoints;
+                finalScore += calculatedScore;
+            }
+        }
+
+        // 3. 최종 점수를 반환합니다. (소수점 첫째 자리까지 반올림)
+        res.status(200).json({ finalScore: Math.round(finalScore * 10) / 10 });
+
+    } catch (error) {
+        res.status(500).json({ message: '최종 점수 계산 중 서버 오류가 발생했습니다.' });
     } finally {
         if (connection) connection.release();
     }

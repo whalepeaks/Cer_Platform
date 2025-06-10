@@ -1,7 +1,7 @@
 // src/pages/ResultsPage.js
 import React, { useState, useEffect } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
-import { Container, Spinner, Alert, Card, ListGroup, Button, Collapse } from 'react-bootstrap'; // Card 임포트 확인
+import { Container, Spinner, Alert, Card, ListGroup, Button, Collapse, Badge } from 'react-bootstrap'; // Card 임포트 확인
 import ReactMarkdown from 'react-markdown'; 
 import remarkGfm from 'remark-gfm';
 import { toKSTString } from '../utils/formatDate';
@@ -17,6 +17,9 @@ function ResultsPage() {
   const [loadingAiFeedbackFor, setLoadingAiFeedbackFor] = useState(null);
   const [generatedProblems, setGeneratedProblems] = useState({});
   const [loadingSimilar, setLoadingSimilar] = useState(null);
+  const [loadingScoreFor, setLoadingScoreFor] = useState(null);
+  const [finalScore, setFinalScore] = useState(null);
+  const [loadingFinalScore, setLoadingFinalScore] = useState(false);
 
   useEffect(() => {
     if (submissionId) {
@@ -149,12 +152,101 @@ function ResultsPage() {
   }
 
   const { submissionInfo, answeredQuestions } = resultData;
+// 최종 점수 확인
+  const handleGetScore = async (questionId) => {
+    // 1. 특정 문제의 채점 버튼이 로딩 상태임을 표시
+    setLoadingScoreFor(questionId);
+
+    try {
+      // 2. 백엔드에 만들어둔 'score-answer' API를 호출합니다.
+      const response = await fetch(`${BACKEND_URL}/api/ai/score-answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          submissionId: parseInt(submissionId),
+          questionId: questionId,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || '채점에 실패했습니다.');
+
+      // 3. API 호출 성공 시, 전체 데이터(resultData)를 업데이트하여 점수를 반영합니다.
+      setResultData(prevData => {
+        // 기존 answeredQuestions 배열을 순회하며
+        const updatedQuestions = prevData.answeredQuestions.map(q => {
+          // 현재 채점한 문제와 ID가 일치하는 항목을 찾으면
+          if (q.questionId === questionId) {
+            // 해당 항목에 ai_score 속성을 추가하여 새로운 객체를 반환
+            return { ...q, ai_score: data.score };
+          }
+          // 다른 문제들은 그대로 반환
+          return q;
+        });
+        // 전체 resultData 객체를 새로운 answeredQuestions 배열로 교체하여 업데이트
+        return { ...prevData, answeredQuestions: updatedQuestions };
+      });
+
+    } catch (err) {
+      alert(`오류: ${err.message}`);
+    } finally {
+      // 4. 작업이 성공하든 실패하든 로딩 상태를 해제
+      setLoadingScoreFor(null);
+    }
+  };
+
+const handleGetFinalScore = async () => {
+    setLoadingFinalScore(true);
+    setFinalScore(null); // 이전 점수가 있다면 초기화
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/results/${submissionId}/final-score`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || '최종 점수 계산에 실패했습니다.');
+      }
+
+      setFinalScore(data.finalScore);
+
+    } catch (err) {
+      // 채점되지 않은 답변이 있을 경우 백엔드에서 400 오류와 메시지를 보냅니다.
+      alert(`오류: ${err.message}`);
+    } finally {
+      setLoadingFinalScore(false);
+    }
+  };
 
   return (
     <Container className="mt-4">
       <h2>모의고사 결과: {submissionInfo.examTypeName}</h2>
       <p>제출일: {toKSTString(submissionInfo.submitted_at)}</p>
       <hr />
+      <Card className="mb-4 text-center">
+        <Card.Header as="h5">최종 점수</Card.Header>
+        <Card.Body>
+          {finalScore !== null ? (
+            // 최종 점수가 계산되었으면 점수를 보여줍니다.
+            <h3 className="display-4 text-primary">{finalScore} / 100점</h3>
+          ) : (
+            // 아직 계산 전이면 버튼을 보여줍니다.
+            <Button
+              variant="success"
+              size="lg"
+              onClick={handleGetFinalScore}
+              disabled={loadingFinalScore}
+            >
+              {loadingFinalScore ? (
+                <><Spinner as="span" animation="border" size="sm" /> 계산 중...</>
+              ) : (
+                '최종 점수 계산하기'
+              )}
+            </Button>
+          )}
+          <Card.Text className="text-muted mt-2">
+            모든 문제에 대해 'AI 채점하기'를 먼저 진행해야 정확한 점수가 계산됩니다.
+          </Card.Text>
+        </Card.Body>
+      </Card>
       <h3>제출한 답안 및 문제</h3>
       <ListGroup as="ol" numbered className="mt-3">
         {answeredQuestions.map((item, index) => (
@@ -166,10 +258,30 @@ function ResultsPage() {
               {item.question_text}
             </Card.Text>
             
-            <Card.Text as="div" className="mb-1"><strong>내가 제출한 답:</strong></Card.Text>
-            <Card.Text as="div" style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px' }}>
-              {item.submitted_answer || '답변 없음'}
-            </Card.Text>
+            <div className="d-flex justify-content-between align-items-center mb-1 mt-3">
+            <strong className="mb-0">내가 제출한 답:</strong>
+              {item.ai_score !== null && typeof item.ai_score !== 'undefined' ? (
+                <Badge bg="primary" pill style={{ fontSize: '1rem' }}>
+                AI 점수: {item.ai_score}점
+                </Badge>
+  ) : (
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => handleGetScore(item.questionId)}
+                  disabled={loadingScoreFor === item.questionId}
+                >
+                {loadingScoreFor === item.questionId ? (
+                <><Spinner as="span" animation="border" size="sm" /> 채점 중...</>
+                ) : (
+                  'AI 채점하기'
+                )}
+                </Button>
+                 )}
+              </div>
+          <Card.Text as="div" style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px' }}>
+            {item.submitted_answer || '답변 없음'}
+          </Card.Text>
 
             <Card.Text as="div" className="mb-1 mt-3"><strong>모범 정답:</strong></Card.Text>
             <Card.Text as="div" style={{ whiteSpace: 'pre-wrap' }}>

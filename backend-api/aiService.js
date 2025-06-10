@@ -134,8 +134,51 @@ async function generateSimilarQuestion(originalQuestionText, questionType, model
     }
   }
 }
+// ▼▼▼▼▼ [추가] AI 채점 함수 ▼▼▼▼▼
+async function getAiScoreForAnswer(questionText, correctAnswer, userAnswer, modelName = "sonar") {
+  if (!PERPLEXITY_API_KEY) {
+    throw new Error("Perplexity API 키가 설정되지 않았습니다.");
+  }
+
+  const prompt = `
+    당신은 엄격하고 공정한 정보보안기사 채점관입니다. [문제]와 [모범 답안]을 기준으로 [사용자 답안]이 얼마나 핵심 개념을 정확히 이해하고 서술했는지 평가해주세요.
+    0점에서 100점 사이의 정수(Integer)로만 점수를 매겨주세요.
+
+    **매우 중요:** 당신의 답변은 반드시 아래와 같은 JSON 형식이어야 하며, 다른 어떤 설명도 포함해서는 안 됩니다.
+    {
+      "score": 85
+    }
+
+    ---
+    [문제]: ${questionText}
+    [모범 답안]: ${correctAnswer}
+    [사용자 답안]: ${userAnswer}
+    ---
+    [채점 결과 JSON]:
+  `;
+
+  try {
+    console.log(`Perplexity API 채점 요청 시작. 모델: ${modelName}`);
+    const requestBody = { model: modelName, messages: [{ role: "user", content: prompt }] };
+    const headers = { 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Content-Type': 'application/json' };
+    const response = await axios.post(PPLX_CHAT_COMPLETIONS_URL, requestBody, { headers });
+
+    const content = response.data.choices[0].message.content;
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed.score; // 점수(숫자)만 반환
+    } else {
+      throw new Error("AI 응답에서 유효한 JSON 점수 객체를 찾을 수 없습니다.");
+    }
+  } catch (error) {
+    console.error("Perplexity API 채점 중 오류 발생:", error);
+    throw error;
+  }
+}
 
 module.exports = {
   generateFeedbackForAnswer,
-  generateSimilarQuestion
+  generateSimilarQuestion,
+  getAiScoreForAnswer
 };
