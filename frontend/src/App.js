@@ -10,6 +10,8 @@ import LoginPage from './pages/LoginPage'; // LoginPage
 import ResultsPage from './pages/ResultsPage'; // 결과 페이지
 import MyRecordsPage from './pages/MyRecordsPage'; // 내 기록 페이지
 import Container from 'react-bootstrap/Container'; // Bootstrap 컨테이너 추가
+import WeaknessDrillPage from './pages/WeaknessDrillPage';
+import DrillSessionPage from './pages/DrillSessionPage';
 // import 'bootstrap/dist/css/bootstrap.min.css'; // 
 
 function App() {
@@ -48,16 +50,14 @@ function App() {
           <Routes>
             <Route path="/" element={<MainContent />} />
             <Route path="/mock-exam/:examTypeId" element={<MockExamPage />} /> 
-           {/* <Route path="/questions/:examTypeId/:roundIdentifier" element={<QuestionPage />} /> */}
             <Route path="/mock-exam" element={currentUser ? <MockExamPage /> : <Navigate to="/login" replace />} />
-            <Route 
-              path="/login" 
-              element={currentUser ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />} />
-            <Route
-              path="/register"
-              element={currentUser ? <Navigate to="/" replace /> : <RegisterPage />} />
+            <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />} />
+            <Route path="/register" element={currentUser ? <Navigate to="/" replace /> : <RegisterPage />} />
             <Route path="/results/:submissionId" element={currentUser ? <ResultsPage /> : <Navigate to="/login" replace />} /> 
             <Route path="/my-records" element={currentUser ? <MyRecordsPage /> : <Navigate to="/login" replace />} /> 
+            <Route path="/weakness-drill" element={<WeaknessDrillPage />} />
+            <Route path="/drill-session" element={<DrillSessionPage />} />
+
             {/* 기타 필요한 라우트들 */}
           </Routes>
         </Container>

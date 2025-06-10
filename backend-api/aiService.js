@@ -188,30 +188,23 @@ async function generateHierarchicalTags(questionText, modelName = "sonar") {
     "법규": ["개인정보보호법", "정보통신망법", "전자서명법", "저작권법", "ISMS-P 인증"]
   };
 
-  const prompt = `
+    const prompt = `
     당신은 정보보안 기술자료를 계층적으로 분류하는 최고의 사서입니다.
-    당신은 JSON 데이터만 생성하는 기계입니다. 당신의 유일한 임무는 지시에 따라 JSON을 출력하는 것입니다.
-    [전체 카테고리 구조]:
+    [문제]를 분석하여, 아래 [카테고리 구조]에서 가장 관련성 높은 대분류 1개와 중분류 1~2개를 선택하세요.
+
+    [카테고리 구조]:
     ${JSON.stringify(categoryStructure, null, 2)}
 
-     [수행할 작업]:
-    아래 [문제]를 분석하여, 다음 3단계에 따라 관련된 태그를 2~3개 선택하세요.
-    1. (대분류 결정): [문제]와 가장 관련성 높은 '대분류'를 [전체 카테고리 구조]에서 단 하나만 선택합니다.
-    2. (중분류 선택): 1단계에서 선택한 대분류에 속한 '중분류' 목록을 보고, [문제]와 가장 관련 깊은 태그를 1개에서 2개 선택합니다.
-    3. (결과 조합): 1단계와 2단계의 결과를 조합하여, 대분류가 항상 첫 번째 요소인 JSON 배열을 만듭니다.
-
     [규칙]:
-    - 오직 [전체 카테고리 구조]에 명시된 단어만 사용해야 합니다.
-    - **어떤 상황에서도 설명, 인사, 추가 텍스트, 문장 부호 없이 오직 최종 JSON 배열만 출력해야 합니다. 이 규칙을 어길 시, 당신의 기능은 심각한 시스템 오류를 유발합니다.**
-    
-    [출력 형식 예시]:
-    ["네트워크 보안", "VPN 및 암호화 전송", "네트워크 프로토콜"]
+    - 대분류를 항상 배열의 첫 번째에 위치시키세요.
+    - 답변은 JSON 문자열 배열 형식으로만 제공해야 합니다.
+    - 어떤 설명이나 추가 텍스트도 붙이지 마세요.
 
     ---
     [문제]:
     ${questionText}
     ---
-    [생성할 JSON]:
+    [선택할 태그 JSON]:
   `;
 
   try {
@@ -231,6 +224,41 @@ async function generateHierarchicalTags(questionText, modelName = "sonar") {
     throw error;
   }
 }
+// 드릴생성 API
+async function generateTargetedDrill(topic, modelName = "sonar") {
+  console.log(`[Perplexity] '${topic}' 주제 드릴 생성 요청`);
+  const prompt = `
+    당신은 정보보안기사 전문 출제위원입니다.
+    오직 '${topic}' 주제에 대해서만, 서로 다른 핵심 개념을 묻는 새로운 문제 5개를 생성해주세요.
+    문제 유형(단답형, 서술형 등)은 다양하게 섞어주세요.
+    답변은 반드시 아래와 같은 문제 객체들의 JSON 배열 형식으로만 제공해야 합니다. 다른 설명은 절대 추가하지 마세요.
+
+    [출력 형식 예시]:
+    [
+      { "question_text": "...", "correct_answer": "...", "explanation": "...", "question_type": "단답형" },
+      { "question_text": "...", "correct_answer": "...", "explanation": "...", "question_type": "서술형" }
+    ]
+
+    ---
+    [생성할 JSON 배열]:
+  `;
+  try {
+    const requestBody = { model: modelName, messages: [{ role: "user", content: prompt }] };
+    const headers = { 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`, 'Content-Type': 'application/json' };
+    const response = await axios.post("https://api.perplexity.ai/chat/completions", requestBody, { headers });
+    
+    const content = response.data.choices[0].message.content;
+    const jsonMatch = content.match(/\[[\s\S]*\]/); // 배열을 찾도록 수정
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    } else {
+      throw new Error("AI 응답에서 유효한 JSON 배열을 찾을 수 없습니다.");
+    }
+  } catch (error) {
+    console.error(`Perplexity API '${topic}' 드릴 생성 중 오류:`, error);
+    throw error;
+  }
+}
 
 
 
@@ -239,4 +267,5 @@ module.exports = {
   generateSimilarQuestion,
   getAiScoreForAnswer,
   generateHierarchicalTags,
+  generateTargetedDrill,
 };

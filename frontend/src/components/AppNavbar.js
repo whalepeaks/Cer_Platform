@@ -27,6 +27,8 @@ function AppNavbar({ currentUser, onLogout }) { // props로 currentUser와 onLog
                 <NavDropdown title={`${currentUser.username}님`} id="basic-nav-dropdown">
                 <NavDropdown.Item as={Link} to="/my-info">내 정보</NavDropdown.Item>
                 <NavDropdown.Item as={Link} to="/my-records">내 기록</NavDropdown.Item>
+                <NavDropdown.Item as={Link} to="/weakness-drill">AI 약점 분석</NavDropdown.Item>
+                <NavDropdown.Divider />
                 <NavDropdown.Item onClick={handleLogoutClick}>로그아웃</NavDropdown.Item>
                 </NavDropdown>
             ) : (

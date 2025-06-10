@@ -586,8 +586,68 @@ app.get('/api/results/:submissionId/final-score', async (req, res) => {
         if (connection) connection.release();
     }
 });
+// AI 학습 드릴
+app.get('/api/user/weakness-topics', async (req, res) => {
+    // 실제 서비스에서는 req.user.id 와 같이 로그인된 사용자 ID를 사용해야 합니다.
+    // 지금은 테스트를 위해 임시로 1번 사용자를 대상으로 하겠습니다.
+    const userId = 1; 
 
+    if (!userId) {
+        return res.status(401).json({ message: "사용자 인증이 필요합니다." });
+    }
 
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 사용자의 답변 중 AI 점수가 특정 기준(예: 65점) 미만인 것들을 찾고,
+        // 그 문제들의 주제(topic)별로 갯수를 세어 가장 많은 순서대로 5개를 가져옵니다.
+        const query = `
+            SELECT
+                q.topic,
+                COUNT(*) as incorrect_count,
+                AVG(ua.ai_score) as average_score
+            FROM user_answers ua
+            JOIN questions q ON ua.question_id = q.id
+            WHERE
+                ua.user_id = ? AND
+                ua.ai_score < 65 AND -- '약점'으로 판단할 점수 기준 (조정 가능)
+                q.topic IS NOT NULL AND q.topic != ''
+            GROUP BY q.topic
+            ORDER BY incorrect_count DESC, average_score ASC
+            LIMIT 5;
+        `;
+
+        const [weakTopics] = await connection.query(query, [userId]);
+        connection.release();
+
+        res.status(200).json(weakTopics);
+
+    } catch (error) {
+        if (connection) connection.release();
+        console.error('약점 주제 분석 API 오류:', error);
+        res.status(500).json({ message: '약점 주제 분석 중 서버 오류가 발생했습니다.' });
+    }
+});
+// 드릴 생성
+app.post('/api/ai/generate-drill', async (req, res) => {
+    const { topic } = req.body;
+
+    if (!topic) {
+        return res.status(400).json({ message: '주제(topic) 정보가 필요합니다.' });
+    }
+
+    try {
+        // 1. aiService에 새로 만든 함수를 호출하여 문제 배열을 받아옵니다.
+        const questions = await aiService.generateTargetedDrill(topic);
+        
+        // 2. 받아온 문제 배열을 프론트엔드에 그대로 전달합니다.
+        res.status(200).json(questions);
+
+    } catch (error) {
+        res.status(500).json({ message: 'AI 드릴 문제 생성 중 서버 오류가 발생했습니다.' });
+    }
+});
 
 // 서버 시작
 app.listen(port, () => {
