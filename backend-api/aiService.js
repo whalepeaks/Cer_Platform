@@ -176,9 +176,67 @@ async function getAiScoreForAnswer(questionText, correctAnswer, userAnswer, mode
     throw error;
   }
 }
+// AI 태그 생성 함수
+async function generateHierarchicalTags(questionText, modelName = "sonar") {
+  if (!PERPLEXITY_API_KEY) { /* ... */ }
+
+  const categoryStructure = {
+    "시스템 보안": ["서버 보안", "OS 보안", "클라이언트 보안", "가상화 보안", "보안 아키텍처"],
+    "네트워크 보안": ["네트워크 프로토콜", "네트워크 장비", "해킹", "VPN", "서비스 거부 공격"],
+    "애플리케이션 보안": ["웹 보안", "소프트웨어 개발 보안", "데이터베이스 보안", "악성코드", "취약점 분석"],
+    "정보보호 관리": ["정보보호 정책", "위험 관리", "보안 감사", "재해 복구", "물리적 보안"],
+    "법규": ["개인정보보호법", "정보통신망법", "전자서명법", "저작권법", "ISMS-P 인증"]
+  };
+
+  const prompt = `
+    당신은 정보보안 기술자료를 계층적으로 분류하는 최고의 사서입니다.
+    당신은 JSON 데이터만 생성하는 기계입니다. 당신의 유일한 임무는 지시에 따라 JSON을 출력하는 것입니다.
+    [전체 카테고리 구조]:
+    ${JSON.stringify(categoryStructure, null, 2)}
+
+     [수행할 작업]:
+    아래 [문제]를 분석하여, 다음 3단계에 따라 관련된 태그를 2~3개 선택하세요.
+    1. (대분류 결정): [문제]와 가장 관련성 높은 '대분류'를 [전체 카테고리 구조]에서 단 하나만 선택합니다.
+    2. (중분류 선택): 1단계에서 선택한 대분류에 속한 '중분류' 목록을 보고, [문제]와 가장 관련 깊은 태그를 1개에서 2개 선택합니다.
+    3. (결과 조합): 1단계와 2단계의 결과를 조합하여, 대분류가 항상 첫 번째 요소인 JSON 배열을 만듭니다.
+
+    [규칙]:
+    - 오직 [전체 카테고리 구조]에 명시된 단어만 사용해야 합니다.
+    - **어떤 상황에서도 설명, 인사, 추가 텍스트, 문장 부호 없이 오직 최종 JSON 배열만 출력해야 합니다. 이 규칙을 어길 시, 당신의 기능은 심각한 시스템 오류를 유발합니다.**
+    
+    [출력 형식 예시]:
+    ["네트워크 보안", "VPN 및 암호화 전송", "네트워크 프로토콜"]
+
+    ---
+    [문제]:
+    ${questionText}
+    ---
+    [생성할 JSON]:
+  `;
+
+  try {
+    const requestBody = { model: modelName, messages: [{ role: "user", content: prompt }] };
+    const headers = { 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Content-Type': 'application/json' };
+    const response = await axios.post(PPLX_CHAT_COMPLETIONS_URL, requestBody, { headers });
+    
+    const content = response.data.choices[0].message.content;
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]); // 예: ["네트워크 보안", "VPN 및 암호화 전송"]
+    } else {
+      throw new Error("AI 응답에서 유효한 JSON 배열을 찾을 수 없습니다.");
+    }
+  } catch (error) {
+    console.error("Perplexity API 계층형 태그 생성 중 오류 발생:", error);
+    throw error;
+  }
+}
+
+
 
 module.exports = {
   generateFeedbackForAnswer,
   generateSimilarQuestion,
-  getAiScoreForAnswer
+  getAiScoreForAnswer,
+  generateHierarchicalTags,
 };

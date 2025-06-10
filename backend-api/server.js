@@ -405,51 +405,95 @@ app.post('/api/ai/feedback', async (req, res) => {
 });
 // ai해설기반 새로운 문제 생성 api
 app.post('/api/ai/generate-and-save-question', async (req, res) => {
-    const { originalQuestionId, userId, questionType} = req.body; 
+    // 프론트엔드로부터 원본 문제 ID와 사용자 ID를 받습니다.
+    const { originalQuestionId, userId } = req.body;
 
     if (!originalQuestionId || !userId) {
-        return res.status(400).json({ message: "원본 문제 ID와 사용자 ID가 필요합니다." });
+        return res.status(400).json({ message: "필수 정보(원본 문제 ID, 사용자 ID)가 누락되었습니다." });
     }
 
     let connection;
     try {
+        // 1. 원본 문제의 정보를 DB에서 가져옵니다 (AI 프롬프트에 사용).
         connection = await pool.getConnection();
-
-        // 1. 원본 문제 정보를 DB에서 가져와 AI 프롬프트에 활용합니다.
         const [originalQuestions] = await connection.query(
-            'SELECT question_text FROM questions WHERE id = ?',
+            'SELECT question_text, question_type FROM questions WHERE id = ?',
             [originalQuestionId]
         );
 
         if (originalQuestions.length === 0) {
-            return res.status(404).json({ message: "원본 문제를 찾을 수 없습니다." });
+            return res.status(404).json({ message: '원본 문제를 찾을 수 없습니다.' });
         }
-        const originalQuestionText = originalQuestions[0].question_text;
+        const originalQuestion = originalQuestions[0];
         
-        // 2. AI 서비스를 호출하여 새로운 문제 생성 (aiService.js에 관련 함수가 있다고 가정)
-        const newProblem = await aiService.generateSimilarQuestion(originalQuestionText, questionType);
+        // 2. AI를 호출하여 원본 문제와 유사한 '새로운 문제'를 생성합니다.
+        console.log(`[AI Task 1/2] 유사 문제 생성 시작...`);
+        const newProblem = await aiService.generateSimilarQuestion(
+            originalQuestion.question_text, 
+            originalQuestion.question_type
+        );
 
-        // 3. AI가 생성한 새로운 문제를 `ai_generated_questions` 테이블에 저장!
-        const insertQuery = `
-            INSERT INTO ai_generated_questions 
-                (question_text, correct_answer, explanation, question_type, original_question_id, created_by_user_id)
-            VALUES (?, ?, ?, ?, ?, ?);
-        `;
-        await connection.query(insertQuery, [
-            newProblem.question_text,
-            newProblem.correct_answer,
-            newProblem.explanation,
-            newProblem.question_type, 
-            originalQuestionId,
-            userId
-        ]);
-        console.log("성공: AI 생성 문제가 DB에 저장되었습니다.");
+        // 3. ★★ 핵심 로직 ★★
+        //    방금 AI가 만든 새로운 문제의 텍스트를 이용해, 다시 AI에게 '계층형 태그' 생성을 요청합니다.
+        console.log(`[AI Task 2/2] 생성된 문제의 태그 생성 시작...`);
+        const tags = await aiService.generateHierarchicalTags(newProblem.question_text);
+        if (!tags || tags.length < 1) {
+            throw new Error('생성된 문제에 대한 AI 태그 생성에 실패했습니다.');
+        }
 
-        // 4. 저장 후, 생성된 문제를 프론트엔드로 보내 바로 보여줍니다.
-        res.status(201).json(newProblem);
+        // 4. 데이터 저장을 위해 DB 트랜잭션을 시작합니다.
+        await connection.beginTransaction();
+
+        // 5. 'ai_generated_questions' 테이블에 새로운 문제와 관련 정보를 저장하고, 새 문제의 ID를 확보합니다.
+        const mainTopic = tags[0]; // AI가 생성한 태그 중 첫 번째(대분류)를 대표 topic으로 저장
+        const [questionResult] = await connection.query(
+            `INSERT INTO ai_generated_questions (
+                question_text, correct_answer, explanation, question_type, topic,
+                original_question_id, created_by_user_id
+             ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                newProblem.question_text, newProblem.correct_answer, newProblem.explanation,
+                newProblem.question_type, mainTopic, originalQuestionId, userId
+            ]
+        );
+        const newAiQuestionId = questionResult.insertId;
+
+        // 6. AI가 생성한 모든 태그(대분류, 중분류)를 'tags'와 'question_tags' 테이블에 저장합니다.
+        //    (batchTagGenerator.js에서 사용했던 계층형 저장 로직)
+        let parentTagId = null;
+        for (const tagName of tags) {
+            let tagId;
+            if (parentTagId === null) { // 첫 번째 태그는 대분류
+                const [rows] = await connection.query("SELECT id FROM tags WHERE name = ? AND parent_id IS NULL", [tagName]);
+                if (rows.length > 0) {
+                    tagId = rows[0].id;
+                } else {
+                    const [result] = await connection.query("INSERT INTO tags (name, parent_id) VALUES (?, NULL)", [tagName]);
+                    tagId = result.insertId;
+                }
+                parentTagId = tagId; // 다음 태그들의 부모가 됨
+            } else { // 두 번째 이후 태그들은 중분류
+                const [rows] = await connection.query("SELECT id FROM tags WHERE name = ? AND parent_id = ?", [tagName, parentTagId]);
+                if (rows.length > 0) {
+                    tagId = rows[0].id;
+                } else {
+                    const [result] = await connection.query("INSERT INTO tags (name, parent_id) VALUES (?, ?)", [tagName, parentTagId]);
+                    tagId = result.insertId;
+                }
+            }
+            // 문제와 태그를 연결
+            await connection.query("INSERT IGNORE INTO question_tags (question_id, tag_id) VALUES (?, ?)", [newAiQuestionId, tagId]);
+        }
+        
+        // 7. 모든 DB 작업이 성공했으므로 최종 저장(커밋)합니다.
+        await connection.commit();
+        
+        console.log(`성공: AI 생성 문제(ID: ${newAiQuestionId})와 태그가 함께 저장되었습니다.`);
+        res.status(201).json(newProblem); // 프론트엔드에는 새로 생성된 문제 객체를 보내줍니다.
 
     } catch (error) {
-        console.error('AI 유사 문제 생성 및 저장 API 오류:', error);
+        if (connection) await connection.rollback(); // 오류 발생 시 모든 작업을 되돌립니다.
+        console.error('AI 유사 문제 생성 및 태그 저장 API 오류:', error);
         res.status(500).json({ message: '서버에서 오류가 발생했습니다.' });
     } finally {
         if (connection) connection.release();
