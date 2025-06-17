@@ -1,17 +1,17 @@
+
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Container, Card, Button, Form, ListGroup, Alert } from 'react-bootstrap';
+import { Container, Card, Button, Form, ListGroup, Alert, Badge} from 'react-bootstrap';
 
 function DrillSessionPage() {
     const location = useLocation();
     const navigate = useNavigate();
-
-    // WeaknessDrillPage에서 navigate로 넘겨준 데이터를 받습니다.
     const { questions, topic } = location.state || { questions: [], topic: '알 수 없는 주제' };
-    
     const [currentIndex, setCurrentIndex] = useState(0);
     const [userAnswers, setUserAnswers] = useState({});
     const [showResults, setShowResults] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [finalDrillResult, setFinalDrillResult] = useState(null);
 
     if (!questions || questions.length === 0) {
         return (
@@ -32,6 +32,43 @@ function DrillSessionPage() {
 
     const currentQuestion = questions[currentIndex];
 
+    // 결과제출 및 저장 핸들러
+    const handleSubmitDrill = async () => {
+        setIsSubmitting(true);
+        const storedUser = localStorage.getItem('currentUser');
+        const userId = storedUser ? JSON.parse(storedUser).userId : null;
+
+        if (!userId) {
+            alert("결과를 저장하려면 로그인이 필요합니다.");
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/drill-sessions/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: userId,
+                    topic: topic,
+                    questions: questions,
+                    userAnswers: userAnswers
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || '결과 저장에 실패했습니다.');
+
+            setFinalDrillResult(data); // 최종 결과(점수 등) 저장
+            setShowResults(true); // 결과 보기 화면으로 전환
+
+        } catch (err) {
+            alert(`오류: ${err.message}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
     if (showResults) {
         return (
             <Container className="mt-4">
@@ -49,6 +86,7 @@ function DrillSessionPage() {
             </Container>
         );
     }
+    
     
     return (
         <Container className="mt-4">
@@ -74,8 +112,12 @@ function DrillSessionPage() {
                         이전 문제
                     </Button>
                     {currentIndex === questions.length - 1 ? (
-                        <Button variant="success" onClick={() => setShowResults(true)}>
-                            결과 보기
+                        <Button 
+                            variant="success" 
+                            onClick={handleSubmitDrill}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? '채점 및 저장 중...' : '채점 및 결과 저장'}
                         </Button>
                     ) : (
                         <Button variant="primary" onClick={() => setCurrentIndex(p => p + 1)}>

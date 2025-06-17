@@ -3,10 +3,9 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import AppNavbar from './components/AppNavbar'; // Navbar
 import MainContent from './components/MainContent'; // MainContent
 import AppFooter from './components/AppFooter';   // Footer
-// import QuestionPage from './pages/QuestionPage';   // 회차별 문제 페이지
-import MockExamPage from './pages/MockExamPage'; // MockExamPage
+import MockExamPage from './pages/MockExamPage'; // 모의고사 문제 페이지
 import RegisterPage from './pages/RegisterPage'; // 회원가입 페이지
-import LoginPage from './pages/LoginPage'; // LoginPage
+import LoginPage from './pages/LoginPage'; // 로그인페이지 
 import ResultsPage from './pages/ResultsPage'; // 결과 페이지
 import MyRecordsPage from './pages/MyRecordsPage'; // 내 기록 페이지
 import Container from 'react-bootstrap/Container'; // Bootstrap 컨테이너 추가

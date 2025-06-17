@@ -39,8 +39,6 @@ app.get('/', (req, res) => {
     res.send('백엔드 서버에 오신 것을 환영합니다!');
 });
 
-// 여기에 DB 정보 가져오는 API 라우트들을 추가할 예정
-
 app.get('/api/exam-types', async (req, res) => {
     try {
         const connection = await pool.getConnection(); // 커넥션 풀에서 커넥션 가져오기
@@ -543,7 +541,6 @@ app.post('/api/ai/score-answer', async (req, res) => {
         if (connection) connection.release();
     }
 });
-
 // 최종점수 확인
 app.get('/api/results/:submissionId/final-score', async (req, res) => {
     const { submissionId } = req.params;
@@ -646,6 +643,105 @@ app.post('/api/ai/generate-drill', async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ message: 'AI 드릴 문제 생성 중 서버 오류가 발생했습니다.' });
+    }
+});
+// 드릴 DB 저장
+app.post('/api/drill-sessions/submit', async (req, res) => {
+    // 프론트엔드로부터 사용자 ID, 주제, 그리고 문제/답변 배열을 받습니다.
+    const { userId, topic, questions, userAnswers } = req.body;
+
+    if (!userId || !topic || !questions || !userAnswers) {
+        return res.status(400).json({ message: '드릴 결과를 저장하기 위한 정보가 부족합니다.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction(); // 트랜잭션 시작
+
+        // 1. drill_sessions 테이블에 새로운 세션 기록을 생성하고, 그 ID를 받습니다.
+        const [sessionResult] = await connection.query(
+            'INSERT INTO drill_sessions (user_id, topic, status) VALUES (?, ?, ?)',
+            [userId, topic, 'completed']
+        );
+        const newSessionId = sessionResult.insertId;
+
+        let totalScore = 0;
+        let scoredCount = 0;
+
+        // 2. 각 문제와 답변을 drill_answers 테이블에 저장합니다.
+        for (const question of questions) {
+            const submittedAnswer = userAnswers[question.question_text] || '';
+
+            const [answerResult] = await connection.query(
+                `INSERT INTO drill_answers 
+                    (drill_session_id, question_text, correct_answer, question_type, submitted_answer) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [newSessionId, question.question_text, question.correct_answer, question.question_type, submittedAnswer]
+            );
+            const newAnswerId = answerResult.insertId;
+
+            // 3. (심화) 저장된 각 답변에 대해 바로 AI 채점을 실행합니다.
+            if (submittedAnswer) {
+                const score = await aiService.getAiScoreForAnswer(question.question_text, question.correct_answer, submittedAnswer);
+                await connection.query('UPDATE drill_answers SET ai_score = ? WHERE id = ?', [score, newAnswerId]);
+                totalScore += score;
+                scoredCount++;
+            }
+        }
+
+        // 4. (심화) 드릴 세션의 최종 평균 점수를 계산하고 업데이트합니다.
+        const finalScore = scoredCount > 0 ? Math.round(totalScore / scoredCount) : 0;
+        await connection.query('UPDATE drill_sessions SET final_score = ? WHERE id = ?', [finalScore, newSessionId]);
+
+        await connection.commit(); // 모든 작업 성공 시 최종 저장
+
+        res.status(201).json({ message: '드릴 결과가 성공적으로 저장되었습니다.', sessionId: newSessionId, finalScore: finalScore });
+
+    } catch (error) {
+        if (connection) await connection.rollback(); // 오류 발생 시 모든 작업 되돌리기
+        console.error('드릴 결과 저장 API 오류:', error);
+        res.status(500).json({ message: '드릴 결과 저장 중 서버 오류가 발생했습니다.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+app.post('/api/ai/score-answer', async (req, res) => {
+    const { submissionId, questionId } = req.body;
+    console.log("★★★★★ '/api/ai/score-answer' API가 호출되었습니다! ★★★★★");
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [rows] = await connection.query(
+            `SELECT q.question_text, q.correct_answer, ua.submitted_answer 
+             FROM user_answers ua 
+             JOIN questions q ON ua.question_id = q.id 
+             WHERE ua.submission_id = ? AND ua.question_id = ?`,
+            [submissionId, questionId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: '채점할 답변을 찾을 수 없습니다.' });
+        }
+        const data = rows[0];
+
+        const score = await aiService.getAiScoreForAnswer(
+            data.question_text,
+            data.correct_answer,
+            data.submitted_answer
+        );
+
+        await connection.query(
+            'UPDATE user_answers SET ai_score = ? WHERE submission_id = ? AND question_id = ?',
+            [score, submissionId, questionId]
+        );
+
+        res.status(200).json({ score });
+    } catch (error) {
+        res.status(500).json({ message: 'AI 채점 중 서버 오류가 발생했습니다.' });
+    } finally {
+        if (connection) connection.release();
     }
 });
 

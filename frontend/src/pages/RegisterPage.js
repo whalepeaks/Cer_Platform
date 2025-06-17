@@ -4,7 +4,7 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom'; // react-rou
 
 // !!!! 실제 백엔드 API 주소로 변경해주세요 !!!!
 // 예시: const BACKEND_URL = 'http://34.64.241.71:3001';
-const BACKEND_URL = 'http://localhost:3001'; // 로컬 테스트 시
+const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 테스트 시
 
 function RegisterPage() {
   const [email, setEmail] = useState('');

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Container, Spinner, Alert, ListGroup, Badge } from 'react-bootstrap';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'http://34.64.241.71:3001';
 
 function MyRecordsPage() {
   const [submissions, setSubmissions] = useState([]);

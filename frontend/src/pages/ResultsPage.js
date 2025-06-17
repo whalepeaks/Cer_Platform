@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toKSTString } from '../utils/formatDate';
 
-const BACKEND_URL = 'http://localhost:3001'; // 로컬 백엔드 주소
+const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 백엔드 주소
 
 function ResultsPage() {
   const { submissionId } = useParams();

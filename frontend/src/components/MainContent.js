@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 // !!!! 실제 백엔드 API 주소로 변경해주세요 !!!!
 // 예시: const BACKEND_URL = 'http://34.64.241.71:3001';
-const BACKEND_URL = 'http://localhost:3001'; // 로컬 테스트 시
+const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 테스트 시
 
 function MainContent() {
   const [examTypes, setExamTypes] = useState([]); // DB에서 가져온 자격증 종류 목록을 저장할 상태

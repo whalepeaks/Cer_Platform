@@ -5,7 +5,7 @@ import { Container, Spinner, Alert, ListGroup, Button, Card, Form } from 'react-
 
 // !!!! 실제 백엔드 API 주소로 변경해주세요 !!!!
 // 'http://34.64.241.71:3001';
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'http://34.64.241.71:3001';
 
 function MockExamPage() {
   const { examTypeId } = useParams();

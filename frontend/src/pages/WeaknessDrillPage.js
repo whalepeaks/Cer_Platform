@@ -5,7 +5,7 @@ import { Container, Spinner, Alert, Card, Button, ListGroup, Badge } from 'react
 import { useNavigate } from 'react-router-dom'; // 페이지 이동을 위해 useNavigate 임포트
 
 // 실제 백엔드 주소로 설정해야 합니다.
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'http://34.64.241.71:3001';
 
 function WeaknessDrillPage() {
     const [weakTopics, setWeakTopics] = useState([]);
