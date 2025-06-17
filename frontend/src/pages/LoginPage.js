@@ -3,7 +3,7 @@ import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
 // !!!! 실제 백엔드 API 주소로 변경해주세요 !!!!
-const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 테스트 시 또는 VM IP:PORT
+//const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 테스트 시 또는 VM IP:PORT
 
 function LoginPage({ onLoginSuccess }) { // onLoginSuccess 콜백 함수를 props로 받음
   const [username, setUsername] = useState('');
@@ -18,7 +18,7 @@ function LoginPage({ onLoginSuccess }) { // onLoginSuccess 콜백 함수를 prop
     setLoading(true);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

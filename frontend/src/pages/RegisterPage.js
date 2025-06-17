@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
 import { useNavigate, Link as RouterLink } from 'react-router-dom'; // react-router-dom의 Link를 RouterLink로 가져옴
 
-// !!!! 실제 백엔드 API 주소로 변경해주세요 !!!!
-// 예시: const BACKEND_URL = 'http://34.64.241.71:3001';
-const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 테스트 시
+//const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 테스트 시
 
 function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -37,7 +35,7 @@ function RegisterPage() {
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

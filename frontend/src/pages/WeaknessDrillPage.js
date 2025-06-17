@@ -5,7 +5,8 @@ import { Container, Spinner, Alert, Card, Button, ListGroup, Badge } from 'react
 import { useNavigate } from 'react-router-dom'; // 페이지 이동을 위해 useNavigate 임포트
 
 // 실제 백엔드 주소로 설정해야 합니다.
-const BACKEND_URL = 'http://34.64.241.71:3001';
+//const BACKEND_URL = 'http://34.64.241.71:3001';
+
 
 function WeaknessDrillPage() {
     const [weakTopics, setWeakTopics] = useState([]);
@@ -19,7 +20,7 @@ function WeaknessDrillPage() {
             setLoading(true);
             setError(null);
             try {
-                const response = await fetch(`${BACKEND_URL}/api/user/weakness-topics`);
+                const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/user/weakness-topics`);
                 if (!response.ok) {
                     throw new Error('약점 데이터를 불러오는 데 실패했습니다.');
                 }
@@ -38,7 +39,7 @@ function WeaknessDrillPage() {
     const handleStartDrill = async (topic) => {
         setLoadingDrillFor(topic); // 로딩 시작
         try {
-            const response = await fetch(`${BACKEND_URL}/api/ai/generate-drill`, {
+            const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ai/generate-drill`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ topic }),

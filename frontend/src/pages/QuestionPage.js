@@ -16,8 +16,8 @@ function QuestionPage() {
   useEffect(() => {
     if (examTypeId && roundIdentifier) {
       // 백엔드 API URL (반드시 실제 VM 외부 IP와 백엔드 포트로 변경해주세요!)
-      const apiUrl = `http://34.64.241.71:3001/api/questions?examTypeId=${examTypeId}&round=${encodeURIComponent(roundIdentifier)}`;
-      const examTypeApiUrl = `http://34.64.241.71:3001/api/exam-types`; // 자격증 종류 이름 가져오기용
+      const apiUrl = `${process.env.REACT_APP_BACKEND_URL}/api/questions?examTypeId=${examTypeId}&round=${encodeURIComponent(roundIdentifier)}`;
+      const examTypeApiUrl = `${process.env.REACT_APP_BACKEND_URL}:3001/api/exam-types`; // 자격증 종류 이름 가져오기용
 
       console.log("Fetching questions from:", apiUrl); // 디버깅용 로그
 

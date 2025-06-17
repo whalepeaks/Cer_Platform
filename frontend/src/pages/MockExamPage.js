@@ -5,7 +5,7 @@ import { Container, Spinner, Alert, ListGroup, Button, Card, Form } from 'react-
 
 // !!!! 실제 백엔드 API 주소로 변경해주세요 !!!!
 // 'http://34.64.241.71:3001';
-const BACKEND_URL = 'http://34.64.241.71:3001';
+//const BACKEND_URL = 'http://34.64.241.71:3001';
 
 function MockExamPage() {
   const { examTypeId } = useParams();
@@ -30,7 +30,7 @@ function MockExamPage() {
     setGenerationMessages([]);
     setTotalQuestions(0);
 
-    const apiUrl = `${BACKEND_URL}/api/mock-exam/generate?examTypeId=${examTypeId}`;
+    const apiUrl = `${process.env.REACT_APP_BACKEND_URL}/api/mock-exam/generate?examTypeId=${examTypeId}`;
     fetch(apiUrl)
       .then(response => { /* ... */ if (!response.ok) { return response.json().then(err => { throw new Error(err.message || `HTTP 오류! ${response.status}`)}) } return response.json();})
       .then(data => {
@@ -100,7 +100,7 @@ function MockExamPage() {
 
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/mock-exam/submit`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/mock-exam/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

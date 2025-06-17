@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toKSTString } from '../utils/formatDate';
 
-const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 백엔드 주소
+//const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 백엔드 주소
 
 function ResultsPage() {
   const { submissionId } = useParams();
@@ -25,7 +25,7 @@ function ResultsPage() {
     if (submissionId) {
       setLoading(true);
       setError(null);
-      const apiUrl = `${BACKEND_URL}/api/submission-results/${submissionId}`;
+      const apiUrl = `${process.env.REACT_APP_BACKEND_URL}/api/submission-results/${submissionId}`;
       console.log("결과 데이터 요청 URL:", apiUrl);
 
       fetch(apiUrl)
@@ -65,7 +65,7 @@ function ResultsPage() {
 
     try {
       // 1. 새로 만든 통합 API('/api/ai/feedback')를 호출합니다.
-      const response = await fetch(`${BACKEND_URL}/api/ai/feedback`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ai/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ function ResultsPage() {
 
     try {
         // 3. 백엔드에 만들어둔 'generate-and-save-question' API를 호출합니다.
-        const response = await fetch(`${BACKEND_URL}/api/ai/generate-and-save-question`, {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ai/generate-and-save-question`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -159,7 +159,7 @@ function ResultsPage() {
 
     try {
       // 2. 백엔드에 만들어둔 'score-answer' API를 호출합니다.
-      const response = await fetch(`${BACKEND_URL}/api/ai/score-answer`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ai/score-answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,7 +199,7 @@ const handleGetFinalScore = async () => {
     setFinalScore(null); // 이전 점수가 있다면 초기화
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/results/${submissionId}/final-score`);
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/results/${submissionId}/final-score`);
       const data = await response.json();
 
       if (!response.ok) {

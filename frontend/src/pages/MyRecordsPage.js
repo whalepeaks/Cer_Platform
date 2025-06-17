@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Container, Spinner, Alert, ListGroup, Badge } from 'react-bootstrap';
 
-const BACKEND_URL = 'http://34.64.241.71:3001';
+//const BACKEND_URL = 'http://34.64.241.71:3001';
 
 function MyRecordsPage() {
   const [submissions, setSubmissions] = useState([]);
@@ -27,7 +27,7 @@ function MyRecordsPage() {
 
       try {
         // 백엔드 API 호출 시 userId를 쿼리 파라미터로 전달 (또는 인증 헤더 사용)
-        const response = await fetch(`${BACKEND_URL}/api/my-submissions?userId=${userId}`);
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/my-submissions?userId=${userId}`);
         // 만약 인증 헤더를 사용한다면:
         // const response = await fetch(`${BACKEND_URL}/api/my-submissions`, {
         //   headers: {
