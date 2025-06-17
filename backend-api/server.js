@@ -5,6 +5,11 @@ const mysql = require('mysql2/promise');
 
 const app = express();
 const port = process.env.PORT || 3001;
+const corsOptions = {
+  origin: 'http://34.64.241.71', // 프론트엔드가 서비스되는 출처를 정확히 명시
+  optionsSuccessStatus: 200 
+};
+app.use(cors(corsOptions));
 
 const aiService = require('./aiService');
 
