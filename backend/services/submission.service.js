@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const aiService = require('../aiService.js'); // 부모 폴더에서 찾도록 경로 수정
+const aiService = require('./aiService.js');
 
 const SCORE_MAP = {
   '단답형': 3,
@@ -7,21 +7,26 @@ const SCORE_MAP = {
   '실무형': 16
 };
 
-async function submitAnswers(userId, examTypeId, answers) {
+async function submitAnswers(userId, setId, answers) { // examTypeId 대신 setId를 받습니다.
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction(); 
 
+        // mock_exam_submissions 테이블에 exam_type_id 대신 set_id를 저장하도록 수정해야 합니다.
+        // 이를 위해 DB 테이블 구조 변경이 선행되어야 합니다. (ALTER TABLE ...)
+        // 우선 exam_type_id를 임시로 1로 하드코딩하거나, setId에서 exam_type_id를 조회해와야 합니다.
+        // 여기서는 setId를 submission 테이블에 저장하는 것으로 가정합니다. (DB 구조 변경 필요)
         const [submissionResult] = await connection.query(
-            'INSERT INTO mock_exam_submissions (user_id, exam_type_id, submitted_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-            [userId, examTypeId]
+            'INSERT INTO mock_exam_submissions (user_id, set_id, submitted_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+            [userId, setId] // examTypeId -> setId
         );
         const submissionId = submissionResult.insertId;
 
         for (const userAnswer of answers) {
+            // user_answers 테이블의 exam_type_id는 이제 필요 없거나, set_id를 통해 조회할 수 있습니다.
             await connection.query(
-                'INSERT INTO user_answers (submission_id, user_id, question_id, exam_type_id, submitted_answer, submitted_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-                [submissionId, userId, userAnswer.questionId, examTypeId, userAnswer.answer]
+                'INSERT INTO user_answers (submission_id, user_id, question_id, submitted_answer, submitted_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                [submissionId, userId, userAnswer.questionId, userAnswer.answer]
             );
         }
 
@@ -34,6 +39,7 @@ async function submitAnswers(userId, examTypeId, answers) {
         connection.release();
     }
 }
+
 
 async function getMySubmissions(userId) {
     const query = `

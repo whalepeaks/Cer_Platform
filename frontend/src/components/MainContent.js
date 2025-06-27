@@ -1,62 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Button, Spinner, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { getExamTypes } from '../api/examApi'; // API 함수 임포트
+import { getExamSets } from '../api/examApi'; // [수정 완료] getExamSets 함수를 임포트합니다.
 
 function MainContent() {
-  const [examTypes, setExamTypes] = useState([]);
+  const [examSets, setExamSets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchExamTypes = async () => {
+    const fetchExamSets = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await getExamTypes();
-        setExamTypes(response.data);
+        const response = await getExamSets(); // [수정 완료] getExamSets 함수를 호출합니다.
+        setExamSets(response.data);
       } catch (err) {
-        setError(err.response?.data?.message || err.message || '자격증 종류를 불러오는 중 오류 발생');
+        setError(err.response?.data?.message || err.message || '모의고사 목록을 불러오는 중 오류 발생');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchExamTypes();
+    fetchExamSets();
   }, []);
 
   return (
     <>
       <Row className="justify-content-md-center text-center mb-4">
         <Col md={8}>
-          <h2>지옥으로 달려가자</h2>
-          <p className="lead">최고의 선생 효운이와 함께하는 고래봉IT</p>
+          <h2>응시 가능한 모의고사</h2>
+          <p className="lead">
+            원하는 모의고사를 선택하여 시험을 시작하세요.
+          </p>
         </Col>
       </Row>
 
       {loading && (
-        <div className="text-center">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-        </div>
+        <div className="text-center"><Spinner animation="border" /></div>
       )}
 
       {error && <Alert variant="danger">{error}</Alert>}
 
       {!loading && !error && (
         <Row>
-          {examTypes.length > 0 ? (
-            examTypes.map((examType) => (
-              <Col md={4} className="mb-3" key={examType.id}>
+          {examSets.length > 0 ? (
+            examSets.map((examSet) => (
+              <Col md={4} className="mb-3" key={examSet.id}>
                 <Card>
                   <Card.Body>
-                    <Card.Title>{examType.certification_name}</Card.Title>
+                    <Card.Title>{examSet.set_name}</Card.Title>
                     <Card.Text>
-                      {examType.certification_name} 가즈아!!
+                      출제일: {new Date(examSet.created_at).toLocaleDateString('ko-KR')}
                     </Card.Text>
-                    <Link to={`/mock-exam/${examType.id}`}>
-                      <Button variant="primary">모의고사 스타또</Button>
+                    <Link to={`/exam/set/${examSet.id}`}>
+                      <Button variant="primary">시험 시작하기</Button>
                     </Link>
                   </Card.Body>
                 </Card>
@@ -64,7 +62,7 @@ function MainContent() {
             ))
           ) : (
             <Col>
-              <Alert variant="info">등록된 자격증 종류가 없습니다.</Alert>
+              <Alert variant="info">현재 응시 가능한 모의고사가 없습니다.</Alert>
             </Col>
           )}
         </Row>

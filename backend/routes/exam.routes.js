@@ -2,16 +2,15 @@ const express = require('express');
 const router = express.Router();
 const examController = require('../controllers/exam.controller');
 
-// GET /api/exams/types
-router.get('/exam-types', examController.getExamTypes);
+// [신규] GET /api/exams/sets - 모든 모의고사 세트 목록 조회
+router.get('/sets', examController.getExamSets);
 
-// GET /api/exams/types/:examTypeId/rounds
-router.get('/exam-types/:examTypeId/rounds', examController.getRoundsByExamType);
+// [신규] GET /api/exams/sets/:setId - 특정 모의고사 세트의 문제들 조회
+router.get('/sets/:setId', examController.getExamSetQuestions);
 
-// GET /api/exams/questions
-router.get('/questions', examController.getQuestions);
-
-// GET /api/exams/generate-mock
-router.get('/generate-mock', examController.generateMockExam);
+// 이전 라우트들은 삭제합니다.
+// router.get('/exam-types', examController.getExamTypes);
+// router.get('/questions', examController.getQuestions);
+// router.get('/generate-mock', examController.generateMockExam);
 
 module.exports = router;

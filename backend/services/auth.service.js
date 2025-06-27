@@ -1,6 +1,6 @@
 const pool = require('../config/database'); // 분리된 DB 설정 파일을 가져옵니다.
 const bcrypt = require('bcrypt');
-const jwt = ('jsonwebtoken');
+const jwt = require('jsonwebtoken'); // require() 함수로 라이브러리를 불러옵니다.
 
 const saltRounds = 10;
 

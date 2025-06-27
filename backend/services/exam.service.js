@@ -65,10 +65,35 @@ async function generateMockExam(examTypeId) {
         generationMessages: messages.length > 0 ? messages : ['모든 유형의 문제가 요청된 수만큼 정상적으로 포함되었습니다.']
     };
 }
+// [수정] 모든 모의고사 세트 목록을 가져오는 함수
+async function getExamSets() {
+    const [rows] = await pool.query(
+        `SELECT id, set_name, exam_type_id, created_at 
+         FROM mock_exam_sets ORDER BY created_at DESC`
+    );
+    return rows;
+}
+
+// [신규] 특정 모의고사 세트의 문제들을 가져오는 함수
+async function getExamSetQuestions(setId) {
+    const query = `
+        SELECT q.id, q.question_number, q.question_text, q.correct_answer, q.explanation, q.question_type 
+        FROM questions q
+        JOIN mock_exam_set_questions msq ON q.id = msq.question_id
+        WHERE msq.set_id = ?
+        ORDER BY q.question_number
+    `;
+    const [rows] = await pool.query(query, [setId]);
+    if (rows.length === 0) {
+        throw new Error('해당 모의고사를 찾을 수 없거나 문제가 없습니다.');
+    }
+    return rows;
+}
 
 module.exports = {
-    getExamTypes,
+    getExamSets,
     getRoundsByExamType,
     getQuestions,
-    generateMockExam
+    generateMockExam,
+    getExamSetQuestions, // 신규 추가
 };

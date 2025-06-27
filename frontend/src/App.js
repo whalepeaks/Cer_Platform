@@ -23,10 +23,10 @@ function App() {
                 <Route path="/" element={<MainContent />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
-                <Route path="/mock-exam/:examTypeId" element={<MockExamPage />} />
+                {/* [수정] 모의고사 페이지 경로를 setId를 받도록 변경 */}
+                <Route path="/exam/set/:setId" element={<MockExamPage />} />
                 <Route path="/my-records" element={<MyRecordsPage />} />
                 <Route path="/results/:submissionId" element={<ResultsPage />} />
-                {/* QuestionPage는 현재 모의고사 풀이 기능에 직접적으로 사용되지 않으므로 라우트에서 제외하거나 필요시 추가 */}
               </Routes>
             </Container>
           </main>

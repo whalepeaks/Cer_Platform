@@ -1,7 +1,4 @@
-// [삭제] axios는 더 이상 필요 없으므로 삭제하거나 주석 처리합니다.
-// const axios = require('axios');
-
-// [추가] Gemini 라이브러리를 가져옵니다.
+// Gemini 라이브러리를 가져옵니다.
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 require('dotenv').config();
@@ -9,36 +6,34 @@ require('dotenv').config();
 // [추가] .env 파일에서 Google API 키를 가져와 Gemini 클라이언트를 초기화합니다.
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-
-// --- 각 함수들을 아래와 같이 Gemini를 사용하도록 수정합니다. ---
+// aiService.js 파일에서 이 함수를 찾아 아래 내용으로 교체해주세요.
 
 // 1. 상세 피드백 생성 함수
 async function generateFeedbackForAnswer(questionText, correctAnswerOrKeywords, userAnswer) {
-  // 사용할 Gemini 모델을 선택합니다. (gemini-1.5-flash는 빠르고 저렴합니다)
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
-  // 프롬프트는 거의 그대로 사용해도 좋습니다.
   const prompt = `
-당신은 정보보안에 대한 전문가이자 출제위원입니다. 주어진 [문제], [모범 답안/핵심 키워드], 
-그리고 [사용자 답안]을 바탕으로, 사용자가 실제 자격증 시험에서 더 좋은 점수를 받을 수 있도록 피드백을 제공해주세요.
-피드백은 객관적인 사실을 기반으로 문제의 출제의도를 파악하고 키워드를 중심으로 학습할 수 있게 해주세요.
-문제와 정답에 대한 전체적인 개념과 해설을 간략하게 서술해주세요.
-비교할수 있는것이 있거나 추가로 학습이 필요한 경우 간략하게 설명해주세요.
-메타인지 파악을 위해 정확한 개념을 파악 했는지 확인해주세요.
-피드백은 다음 항목을 포함하여 마크다운형식으로 한국어로 작성해주세요.
+You are an expert on information security and a question author for professional certifications.
+Based on the provided [Problem], [Model Answer/Keywords], and [User's Answer], provide constructive feedback to help the user achieve a better score on their actual certification exam.
+
+The feedback must be based on objective facts. It should analyze the intent of the problem and guide the user to learn by focusing on the core keywords.
+- Briefly explain the overall concept and theory behind the problem and its answer.
+- If there are comparable topics or areas that require additional study, explain them concisely.
+- To improve the user's metacognition, verify if they have accurately understood the core concepts.
+
+[IMPORTANT] The entire feedback **must be written in Korean.** and formatted in Markdown with the following sections exactly as shown. Do not add any other text or explanation.
 
 ## [개념과 해설]
 ## [보완할 점 및 개선 방안]
 ## [총평 및 키워드 학습 조언]
 ---
-[문제]:
+[Problem]:
 ${questionText}
-[모범 답안/핵심 키워드]:
+[Model Answer/Keywords]:
 ${correctAnswerOrKeywords}
-[사용자 답안]:
+[User's Answer]:
 ${userAnswer}
 ---
-[생성할 해설]:
+[Feedback to be generated]:
   `;
 
   try {
@@ -47,25 +42,30 @@ ${userAnswer}
     const text = response.text();
     return text;
   } catch (error) {
-    console.error("Gemini API 호출 중 오류 발생 (generateFeedbackForAnswer):", error);
-    throw new Error("Gemini AI 해설 생성 중 오류가 발생했습니다.");
+    console.error("Gemini API call error (generateFeedbackForAnswer):", error);
+    throw new Error("An error occurred while generating AI feedback from Gemini.");
   }
 }
 
+module.exports = {
+  generateFeedbackForAnswer,
+  generateSimilarQuestion,
+  getAiScoreForAnswer,
+  generateHierarchicalTags,
+};
 
 // JSON 출력이 필요한 함수들을 위한 헬퍼 함수
 async function generateJsonFromGemini(prompt, modelName = "gemini-1.5-flash") {
   const model = genAI.getGenerativeModel({
     model: modelName,
     generationConfig: {
-      responseMimeType: "application/json", // JSON 출력을 명시적으로 요청
+      responseMimeType: "application/json",
     },
   });
 
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    // Gemini가 반환한 텍스트에서 JSON 부분만 파싱
     const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(jsonText);
   } catch (error) {
@@ -74,50 +74,66 @@ async function generateJsonFromGemini(prompt, modelName = "gemini-1.5-flash") {
   }
 }
 
+// aiService.js 파일에서 이 함수를 찾아 아래 내용으로 교체해주세요.
 
 // 2. 유사 문제 생성 함수
 async function generateSimilarQuestion(originalQuestionText, questionType) {
+  // [수정] 프롬프트를 영어로 변경하고, 각 필드의 역할을 명확하게 지시합니다.
   const prompt = `
-    당신은 정보보안기사 자격증의 전문 출제위원입니다.
-    아래에 제시된 [원본 문제]를 분석하여, 동일한 핵심 개념을 테스트하지만 상황이나 형식이 다른 새로운 유사 문제 1개를 만들어주세요.
+You are an expert question author for the 'Information Security Engineer' certification exam in Korea.
+Your task is to analyze the provided [Original Problem] and create one new, similar problem that tests the same core concept but uses a different context or format.
 
-    [원본 문제 정보]:
-    - 문제 유형: ${questionType} 
-    - 문제 내용: ${originalQuestionText}
+[Original Problem Information]:
+- Problem Type: ${questionType}
+- Problem Text: ${originalQuestionText}
 
-    **매우 중요:** 답변은 반드시 아래와 같은 JSON 형식으로만 생성해야 합니다. 다른 설명은 절대 추가하지 마세요.
-    {
-      "question_text": "새롭게 생성된 문제의 내용을 여기에 작성하세요.",
-      "correct_answer": "새롭게 생성된 문제의 정답을 여기에 작성하세요.",
-      "explanation": "새롭게 생성된 문제의 해설을 여기에 작성하세요.",
-      "question_type": "${questionType}"
-    }
-    ---
-    [생성할 JSON]:
+**CRITICAL INSTRUCTIONS FOR JSON FORMATTING:**
+Your response MUST be ONLY a single JSON object. Do not add any text or explanations outside of the JSON structure.
+
+**FIELD-SPECIFIC INSTRUCTIONS:**
+- **"question_text"**: Write the new problem text here. Must be in KOREAN.
+- **"correct_answer"**: **This field MUST BE CONCISE.** It should only contain essential keywords, key phrases, or a bulleted list of main points, NOT a full essay. This is for a keyword-based exam. Must be in KOREAN.
+- **"explanation"**: This field should contain the detailed, long-form explanation and background for the problem and answer. Must be in KOREAN.
+- **"question_type"**: This should be the same as the original problem's type.
+
+**JSON STRUCTURE TO USE:**
+{
+  "question_text": "Write the content of the newly created question here in your language.",
+  "correct_answer": "Write your keyword or concise answer sentence here.",
+  "explanation": "Write only a 2-3 sentence explanation of why the correct answer is the correct answer.",
+  "question_type": "${questionType}"
+}
+---
+[JSON to generate]:
   `;
-  // JSON 생성 헬퍼 함수 사용
   return await generateJsonFromGemini(prompt);
 }
-
 
 // 3. AI 채점 함수
 async function getAiScoreForAnswer(questionText, correctAnswer, userAnswer) {
   const prompt = `
-    당신은 엄격하고 공정한 정보보안기사 채점관입니다. [문제]와 [모범 답안]을 기준으로 [사용자 답안]이 얼마나 핵심 개념을 정확히 이해하고 서술했는지 평가해주세요.
-    0점에서 100점 사이의 정수(Integer)로만 점수를 매겨주세요.
-    **매우 중요:** 당신의 답변은 반드시 아래와 같은 JSON 형식이어야 하며, 다른 어떤 설명도 포함해서는 안 됩니다.
-    { "score": 85 }
-    ---
-    [문제]: ${questionText}
-    [모범 답안]: ${correctAnswer}
-    [사용자 답안]: ${userAnswer}
-    ---
-    [채점 결과 JSON]:
+You are a strict and fair grader for the 'Information Security Engineer' certification exam.
+Based on the [Problem] and the [Model Answer], evaluate how accurately the [User's Answer] understands and describes the core concepts.
+Assign a score as an integer between 0 and 100.
+
+**CRITICAL:** Your response MUST be ONLY a single JSON object in the exact format specified below. Do not add any text, explanations, or markdown formatting.
+
+{ "score": 85 }
+---
+[Problem]:
+${questionText}
+---
+[Model Answer]:
+${correctAnswer}
+---
+[User's Answer]:
+${userAnswer}
+---
+[JSON to generate]:
   `;
   const resultJson = await generateJsonFromGemini(prompt);
-  return resultJson.score; // 점수(숫자)만 반환
+  return resultJson.score; 
 }
-
 
 // 4. AI 계층형 태그 생성 함수
 async function generateHierarchicalTags(questionText) {
