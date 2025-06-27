@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
-import { useNavigate, Link as RouterLink } from 'react-router-dom'; // react-router-dom의 Link를 RouterLink로 가져옴
-
-//const BACKEND_URL = 'http://34.64.241.71:3001'; // 로컬 테스트 시
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { register } from '../api/authApi';
 
 function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -14,55 +13,34 @@ function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const passwordCriteria = "8글자만 넘겨봐";
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
     setSuccess('');
-    setLoading(true);
 
     if (password.length < 8) {
-      setError(passwordCriteria);
-      setLoading(false);
+      setError("비밀번호는 8자 이상이어야 합니다.");
       return;
     }
-
     if (password !== confirmPassword) {
       setError('비밀번호가 일치하지 않습니다.');
-      setLoading(false);
       return;
     }
 
+    setLoading(true);
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, username, password }), // email 정보 포함하여 전송
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || '회원가입에 실패했습니다.');
-      }
-
-      setSuccess('고래봉에 오신것을 환영하네');
-      setTimeout(() => {
-        navigate('/login'); // 성공 시 로그인 페이지로 이동
-      }, 2000); // 2초 후 이동
-
+      await register({ email, username, password });
+      setSuccess('고래봉에 오신 것을 환영합니다! 잠시 후 로그인 페이지로 이동합니다.');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message || '회원가입에 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: 'calc(100vh - 120px)' }}> {/* 푸터 높이 등을 고려하여 조정 */}
+    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
       <Card style={{ width: '100%', maxWidth: '450px' }} className="shadow-sm">
         <Card.Body className="p-4">
           <h2 className="text-center mb-4">회원가입</h2>
@@ -71,52 +49,20 @@ function RegisterPage() {
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3" controlId="formRegisterEmail">
               <Form.Label>이메일 주소</Form.Label>
-              <Form.Control
-                type="email"
-                placeholder="이메일 내놔"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Form.Control type="email" placeholder="이메일 내놔" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </Form.Group>
-
             <Form.Group className="mb-3" controlId="formRegisterUsername">
               <Form.Label>사용자 이름 (아이디)</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="왓쮸얼 네임"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
+              <Form.Control type="text" placeholder="왓쮸얼 네임" value={username} onChange={(e) => setUsername(e.target.value)} required />
             </Form.Group>
-
             <Form.Group className="mb-3" controlId="formRegisterPassword">
               <Form.Label>비밀번호</Form.Label>
-              <Form.Control
-                type="password"
-                placeholder="하루에 네번 사랑을 말하고"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                aria-describedby="passwordHelpBlock"
-              />
-              <Form.Text id="passwordHelpBlock" muted>
-                {passwordCriteria}
-              </Form.Text>
+              <Form.Control type="password" placeholder="8자 이상 입력" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </Form.Group>
-
-            <Form.Group className="mb-4" controlId="formConfirmPassword"> {/* 마지막 항목이므로 mb-4로 간격 더 줌 */}
+            <Form.Group className="mb-4" controlId="formConfirmPassword">
               <Form.Label>비밀번호 확인</Form.Label>
-              <Form.Control
-                type="password"
-                placeholder="여덟번 웃고"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
+              <Form.Control type="password" placeholder="다시 한번 입력" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
             </Form.Group>
-
             <Button variant="primary" type="submit" className="w-100 py-2" disabled={loading}>
               {loading ? '가입 처리 중...' : '회원가입'}
             </Button>

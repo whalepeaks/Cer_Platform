@@ -1,15 +1,15 @@
 import React from 'react';
-import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap'; // React Bootstrap 컴포넌트 임포트
+import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-function AppNavbar({ currentUser, onLogout }) { // props로 currentUser와 onLogout 받기
+function AppNavbar() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogoutClick = () => {
-    if (onLogout) {
-      onLogout();
-    }
-    navigate('/'); // 로그아웃 후 홈으로 이동
+    logout();
+    navigate('/');
   };
 
   return (
@@ -20,19 +20,14 @@ function AppNavbar({ currentUser, onLogout }) { // props로 currentUser와 onLog
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto">
             <Nav.Link as={Link} to="/">홈</Nav.Link>
-            {/* <Nav.Link as={Link} to="/mock-exam">모의고사</Nav.Link> */}
-            
-            {currentUser ? (
-              // 로그인 상태일 때
-                <NavDropdown title={`${currentUser.username}님`} id="basic-nav-dropdown">
-                <NavDropdown.Item as={Link} to="/my-info">내 정보</NavDropdown.Item>
+            {user ? (
+              <NavDropdown title={`${user.username}님`} id="basic-nav-dropdown">
+                {/* <NavDropdown.Item as={Link} to="/my-info">내 정보</NavDropdown.Item> */}
                 <NavDropdown.Item as={Link} to="/my-records">내 기록</NavDropdown.Item>
-                <NavDropdown.Item as={Link} to="/weakness-drill">AI 약점 분석</NavDropdown.Item>
                 <NavDropdown.Divider />
                 <NavDropdown.Item onClick={handleLogoutClick}>로그아웃</NavDropdown.Item>
-                </NavDropdown>
+              </NavDropdown>
             ) : (
-              // 로그아웃 상태일 때
               <Nav.Link as={Link} to="/login">로그인</Nav.Link>
             )}
           </Nav>

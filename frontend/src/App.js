@@ -1,68 +1,39 @@
-import React, { useState, useEffect } from 'react'; // useState와 useEffect를 React에서 가져오도록 수정
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'; // Navigate를 react-router-dom에서 가져오도록 추가
-import AppNavbar from './components/AppNavbar'; // Navbar
-import MainContent from './components/MainContent'; // MainContent
-import AppFooter from './components/AppFooter';   // Footer
-import MockExamPage from './pages/MockExamPage'; // 모의고사 문제 페이지
-import RegisterPage from './pages/RegisterPage'; // 회원가입 페이지
-import LoginPage from './pages/LoginPage'; // 로그인페이지 
-import ResultsPage from './pages/ResultsPage'; // 결과 페이지
-import MyRecordsPage from './pages/MyRecordsPage'; // 내 기록 페이지
-import Container from 'react-bootstrap/Container'; // Bootstrap 컨테이너 추가
-import WeaknessDrillPage from './pages/WeaknessDrillPage';
-import DrillSessionPage from './pages/DrillSessionPage';
-// import 'bootstrap/dist/css/bootstrap.min.css'; // 
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { Container } from 'react-bootstrap';
+import { AuthProvider } from './contexts/AuthContext';
+import AppNavbar from './components/AppNavbar';
+import AppFooter from './components/AppFooter';
+import MainContent from './components/MainContent';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import MockExamPage from './pages/MockExamPage';
+import MyRecordsPage from './pages/MyRecordsPage';
+import ResultsPage from './pages/ResultsPage';
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-
-  useEffect(() => {
-    // 앱 시작 시 localStorage에서 사용자 정보 확인
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
-  }, []);
-
-  const handleLoginSuccess = (userData) => {
-    setCurrentUser(userData);
-    // localStorage에도 저장 (새로고침 시 유지)
-    localStorage.setItem('currentUser', JSON.stringify(userData));
-    localStorage.setItem('authToken', /* 로그인 API 응답에서 받은 토큰 저장 */ ); 
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('authToken');
-
-    // 필요하다면 홈페이지로 리다이렉트
-    // navigate('/'); // App.js에서는 useNavigate를 직접 사용하기 어려우므로 AppNavbar 등에서 처리
-  };
-
-
   return (
-    <Router>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <AppNavbar currentUser={currentUser} onLogout={handleLogout} />
-        <Container as="main" className="py-4" style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/" element={<MainContent />} />
-            <Route path="/mock-exam/:examTypeId" element={<MockExamPage />} /> 
-            <Route path="/mock-exam" element={currentUser ? <MockExamPage /> : <Navigate to="/login" replace />} />
-            <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />} />
-            <Route path="/register" element={currentUser ? <Navigate to="/" replace /> : <RegisterPage />} />
-            <Route path="/results/:submissionId" element={currentUser ? <ResultsPage /> : <Navigate to="/login" replace />} /> 
-            <Route path="/my-records" element={currentUser ? <MyRecordsPage /> : <Navigate to="/login" replace />} /> 
-            <Route path="/weakness-drill" element={<WeaknessDrillPage />} />
-            <Route path="/drill-session" element={<DrillSessionPage />} />
-
-            {/* 기타 필요한 라우트들 */}
-          </Routes>
-        </Container>
-        <AppFooter />
-      </div>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="d-flex flex-column min-vh-100">
+          <AppNavbar />
+          <main className="flex-grow-1">
+            <Container className="my-4">
+              <Routes>
+                <Route path="/" element={<MainContent />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/mock-exam/:examTypeId" element={<MockExamPage />} />
+                <Route path="/my-records" element={<MyRecordsPage />} />
+                <Route path="/results/:submissionId" element={<ResultsPage />} />
+                {/* QuestionPage는 현재 모의고사 풀이 기능에 직접적으로 사용되지 않으므로 라우트에서 제외하거나 필요시 추가 */}
+              </Routes>
+            </Container>
+          </main>
+          <AppFooter />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
