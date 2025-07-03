@@ -5,13 +5,17 @@ const asyncHandler = fn => (req, res, next) => {
 };
 
 exports.submitAnswers = asyncHandler(async (req, res) => {
-    const { userId, examTypeId, answers } = req.body;
-    if (!userId || !examTypeId || !answers || !Array.isArray(answers) || answers.length === 0) {
+    const { userId, setId, answers } = req.body;
+    
+    // 이 부분에서 "필수 정보가 누락되었습니다" 오류가 발생하고 있습니다.
+    if (!userId || !setId || !answers || !Array.isArray(answers) || answers.length === 0) {
         return res.status(400).json({ message: '잘못된 요청입니다. 필수 정보가 누락되었습니다.' });
     }
-    const result = await submissionService.submitAnswers(userId, examTypeId, answers);
+
+    const result = await submissionService.submitAnswers(userId, setId, answers);
     res.status(201).json(result);
 });
+
 
 exports.getMySubmissions = asyncHandler(async (req, res) => {
     const { userId } = req.query; // 프론트엔드에서 쿼리로 userId를 보내는 것을 가정

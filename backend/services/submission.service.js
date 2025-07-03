@@ -7,23 +7,20 @@ const SCORE_MAP = {
   '실무형': 16
 };
 
-async function submitAnswers(userId, setId, answers) { // examTypeId 대신 setId를 받습니다.
+async function submitAnswers(userId, setId, answers) {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction(); 
 
-        // mock_exam_submissions 테이블에 exam_type_id 대신 set_id를 저장하도록 수정해야 합니다.
-        // 이를 위해 DB 테이블 구조 변경이 선행되어야 합니다. (ALTER TABLE ...)
-        // 우선 exam_type_id를 임시로 1로 하드코딩하거나, setId에서 exam_type_id를 조회해와야 합니다.
-        // 여기서는 setId를 submission 테이블에 저장하는 것으로 가정합니다. (DB 구조 변경 필요)
+        // [수정] mock_exam_submissions 테이블에 setId를 저장합니다.
         const [submissionResult] = await connection.query(
             'INSERT INTO mock_exam_submissions (user_id, set_id, submitted_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-            [userId, setId] // examTypeId -> setId
+            [userId, setId]
         );
         const submissionId = submissionResult.insertId;
 
+        // user_answers 테이블에는 exam_type_id를 저장할 필요가 없습니다.
         for (const userAnswer of answers) {
-            // user_answers 테이블의 exam_type_id는 이제 필요 없거나, set_id를 통해 조회할 수 있습니다.
             await connection.query(
                 'INSERT INTO user_answers (submission_id, user_id, question_id, submitted_answer, submitted_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
                 [submissionId, userId, userAnswer.questionId, userAnswer.answer]
@@ -42,14 +39,18 @@ async function submitAnswers(userId, setId, answers) { // examTypeId 대신 setI
 
 
 async function getMySubmissions(userId) {
+    // [수정] SQL 쿼리문을 새로운 테이블 구조에 맞게 변경합니다.
+    // mock_exam_submissions -> mock_exam_sets -> exam_types 순서로 JOIN 합니다.
     const query = `
         SELECT 
             ms.id as submissionId, 
             ms.submitted_at, 
+            mes.set_name as examSetName, -- 모의고사 세트 이름으로 변경
             et.certification_name as examTypeName,
             (SELECT COUNT(*) FROM user_answers ua WHERE ua.submission_id = ms.id) as answeredQuestionsCount
         FROM mock_exam_submissions ms
-        JOIN exam_types et ON ms.exam_type_id = et.id
+        JOIN mock_exam_sets mes ON ms.set_id = mes.id
+        JOIN exam_types et ON mes.exam_type_id = et.id
         WHERE ms.user_id = ?
         ORDER BY ms.submitted_at DESC;
     `;
@@ -58,26 +59,48 @@ async function getMySubmissions(userId) {
 }
 
 async function getSubmissionResult(submissionId) {
+    // [수정] SQL 쿼리문을 새로운 테이블 구조에 맞게 변경합니다.
     const [submissionDetails] = await pool.query(
-        `SELECT ms.id as submissionId, ms.submitted_at, et.id as examTypeId, et.certification_name as examTypeName
+        `SELECT 
+            ms.id as submissionId, 
+            ms.submitted_at, 
+            mes.id as setId,
+            mes.set_name as examSetName,
+            et.id as examTypeId, 
+            et.certification_name as examTypeName
          FROM mock_exam_submissions ms
-         JOIN exam_types et ON ms.exam_type_id = et.id
+         JOIN mock_exam_sets mes ON ms.set_id = mes.id
+         JOIN exam_types et ON mes.exam_type_id = et.id
          WHERE ms.id = ?`,
         [submissionId]
     );
-    if (submissionDetails.length === 0) return null;
+
+    if (submissionDetails.length === 0) {
+        throw new Error('해당 제출 기록을 찾을 수 없습니다.');
+    }
 
     const query = `
         SELECT 
-            q.id as questionId, q.question_text, q.correct_answer, q.explanation, q.question_type, q.round_identifier, q.question_number,
-            ua.submitted_answer, ua.submitted_at as answer_submitted_at, ua.ai_score
+            q.id as questionId,
+            q.question_text,
+            q.correct_answer,
+            q.explanation,
+            q.question_type,
+            q.topic,
+            ua.submitted_answer,
+            ua.ai_score,
+            ua.ai_comment
         FROM user_answers ua
         JOIN questions q ON ua.question_id = q.id
         WHERE ua.submission_id = ?
         ORDER BY q.id;
     `;
     const [answeredQuestions] = await pool.query(query, [submissionId]);
-    return { submissionInfo: submissionDetails[0], answeredQuestions };
+
+    return {
+        submissionInfo: submissionDetails[0],
+        answeredQuestions: answeredQuestions
+    };
 }
 
 async function getAiFeedback(submissionId, questionId) {
