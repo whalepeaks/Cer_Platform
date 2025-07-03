@@ -55,6 +55,9 @@ module.exports = {
 };
 
 // JSON 출력이 필요한 함수들을 위한 헬퍼 함수
+// aiService.js 파일에서 이 함수를 찾아 아래 내용으로 교체해주세요.
+
+// JSON 출력이 필요한 함수들을 위한 헬퍼 함수
 async function generateJsonFromGemini(prompt, modelName = "gemini-1.5-flash") {
   const model = genAI.getGenerativeModel({
     model: modelName,
@@ -66,10 +69,18 @@ async function generateJsonFromGemini(prompt, modelName = "gemini-1.5-flash") {
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(jsonText);
+    let text = response.text();
+
+    // [수정] AI가 불필요한 텍스트나 마크다운을 포함해도 JSON만 추출하도록 보강
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      text = jsonMatch[0];
+    }
+
+    return JSON.parse(text);
   } catch (error) {
-    console.error(`Gemini API JSON 생성 중 오류 발생 (프롬프트: ${prompt.substring(0, 50)}...):`, error);
+    console.error(`Gemini API JSON 생성 또는 파싱 중 오류 발생:`, error);
+    // [수정] 더 구체적인 오류 메시지를 던지도록 변경
     throw new Error("Gemini AI로부터 유효한 JSON 응답을 받는 데 실패했습니다.");
   }
 }

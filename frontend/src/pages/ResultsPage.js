@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
-import { Container, Spinner, Alert, Card, ListGroup, Button, Collapse, Badge } from 'react-bootstrap';
+import { Container, Spinner, Alert, Card, ListGroup, Button, Collapse, Badge, Row, Col} from 'react-bootstrap';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,13 +13,23 @@ function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [finalScore, setFinalScore] = useState(null);
-  const [loadingStates, setLoadingStates] = useState({}); // 개별 로딩 상태 통합 관리
+  const [loadingStates, setLoadingStates] = useState({});
 
   const fetchResultData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await getSubmissionResult(submissionId);
-      setResultData(response.data);
+      // 백엔드에서 받은 데이터에 ai_comment, similar_problem 필드를 초기화해줍니다.
+      const initialData = {
+        ...response.data,
+        answeredQuestions: response.data.answeredQuestions.map(q => ({
+          ...q,
+          ai_comment: q.ai_comment || null,
+          similar_problem: null,
+          isCorrectAnswerVisible: false, // 정답 보기 토글 상태 추가
+        })),
+      };
+      setResultData(initialData);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
     } finally {
@@ -31,15 +41,16 @@ function ResultsPage() {
     fetchResultData();
   }, [fetchResultData]);
 
-  const handleAction = async (actionType, questionId, extraPayload = {}) => {
-    setLoadingStates(prev => ({ ...prev, [questionId]: { ...prev[questionId], [actionType]: true } }));
+  // [수정] 모든 버튼 클릭 이벤트를 하나의 핸들러로 통합
+  const handleAction = async (actionType, questionId) => {
+    setLoadingStates(prev => ({ ...prev, [`${actionType}-${questionId}`]: true }));
     try {
       let response;
-      const submissionData = { submissionId: parseInt(submissionId), questionId };
+      const payload = { submissionId: parseInt(submissionId), questionId };
 
       switch (actionType) {
         case 'score':
-          response = await scoreAnswer(submissionData);
+          response = await scoreAnswer(payload);
           setResultData(prev => ({
             ...prev,
             answeredQuestions: prev.answeredQuestions.map(q =>
@@ -48,7 +59,7 @@ function ResultsPage() {
           }));
           break;
         case 'feedback':
-          response = await getAiFeedback(submissionData);
+          response = await getAiFeedback(payload);
           setResultData(prev => ({
             ...prev,
             answeredQuestions: prev.answeredQuestions.map(q =>
@@ -71,10 +82,10 @@ function ResultsPage() {
     } catch (err) {
       alert(`오류: ${err.response?.data?.message || err.message}`);
     } finally {
-      setLoadingStates(prev => ({ ...prev, [questionId]: { ...prev[questionId], [actionType]: false } }));
+      setLoadingStates(prev => ({ ...prev, [`${actionType}-${questionId}`]: false }));
     }
   };
-
+  
   const handleGetFinalScore = async () => {
     setLoadingStates(prev => ({...prev, finalScore: true}));
     try {
@@ -86,6 +97,30 @@ function ResultsPage() {
         setLoadingStates(prev => ({...prev, finalScore: false}));
     }
   };
+  // [신규] 일괄 채점 버튼 클릭 시 실행될 함수
+const handleScoreAll = async () => {
+  // 전체 문제 중에서 아직 채점되지 않은 문제들만 필터링
+  const ungradedQuestions = answeredQuestions.filter(q => q.ai_score === null || typeof q.ai_score === 'undefined');
+
+  if (ungradedQuestions.length === 0) {
+    alert('모든 문제의 채점이 이미 완료되었습니다.');
+    return;
+  }
+
+  // 버튼 로딩 상태 업데이트
+  setLoadingStates(prev => ({ ...prev, scoreAll: true }));
+  alert(`총 ${ungradedQuestions.length}개의 문제에 대한 일괄 채점을 시작합니다.`);
+
+  // 채점되지 않은 문제들을 순회하며 하나씩 채점 API 호출
+  for (const question of ungradedQuestions) {
+    // 기존의 개별 채점 로직 재사용
+    await handleAction('score', question.questionId);
+  }
+
+  alert('일괄 채점이 모두 완료되었습니다.');
+  setLoadingStates(prev => ({ ...prev, scoreAll: false }));
+};
+
 
   if (loading) return <Container className="text-center mt-5"><Spinner animation="border" /></Container>;
   if (error) return <Container className="mt-5"><Alert variant="danger">{error}</Alert></Container>;
@@ -95,20 +130,50 @@ function ResultsPage() {
 
   return (
     <>
-      <h2>모의고사 결과: {submissionInfo.examTypeName}</h2>
+      <h2>모의고사 결과: {submissionInfo.examSetName}</h2>
       <p>제출일: {new Date(submissionInfo.submitted_at).toLocaleString('ko-KR')}</p>
       <hr />
-      <Card className="mb-4 text-center">
-        <Card.Header as="h5">최종 점수</Card.Header>
+      
+ <Card className="mb-4 text-center">
+        <Card.Header as="h5">채점 및 점수 확인</Card.Header>
         <Card.Body>
-          {finalScore !== null ? (
-            <h3 className="display-4 text-primary">{finalScore} / 100점</h3>
-          ) : (
-            <Button variant="success" size="lg" onClick={handleGetFinalScore} disabled={loadingStates.finalScore}>
-              {loadingStates.finalScore ? '계산 중...' : '최종 점수 계산하기'}
-            </Button>
-          )}
-          <Card.Text className="text-muted mt-2">모든 문제에 대해 'AI 채점하기'를 먼저 진행해야 합니다.</Card.Text>
+          {/* [수정] Row와 Col을 사용해 버튼을 좌우로 나눕니다. */}
+          <Row>
+            {/* 왼쪽 컬럼: 일괄 채점 버튼 */}
+            <Col md={6} className="d-grid mb-2 mb-md-0">
+              <Button 
+                variant="info" 
+                size="lg" 
+                onClick={handleScoreAll} 
+                disabled={loadingStates.scoreAll}
+              >
+                {loadingStates.scoreAll ? '채점 진행 중...' : '전체 답변 일괄 채점'}
+              </Button>
+            </Col>
+
+            {/* 오른쪽 컬럼: 최종 점수 계산 버튼 */}
+            <Col md={6} className="d-grid">
+              {finalScore !== null ? (
+                <div className="p-2 border rounded">
+                    <h3 className="display-5 text-primary mb-0">{finalScore} / 100점</h3>
+                </div>
+              ) : (
+                <Button 
+                  variant="success" 
+                  size="lg" 
+                  onClick={handleGetFinalScore} 
+                  disabled={loadingStates.finalScore}
+                >
+                  {loadingStates.finalScore ? '계산 중...' : '최종 점수 계산하기'}
+                </Button>
+              )}
+            </Col>
+          </Row>
+          
+          <Card.Text className="text-muted mt-3">
+            '일괄 채점'을 먼저 진행한 후 '최종 점수 계산하기'를 눌러주세요.
+          </Card.Text>
+
         </Card.Body>
       </Card>
       
@@ -124,32 +189,44 @@ function ResultsPage() {
               {item.ai_score !== null && typeof item.ai_score !== 'undefined' ? (
                 <Badge bg="primary" pill style={{ fontSize: '1rem' }}>AI 점수: {item.ai_score}점</Badge>
               ) : (
-                <Button variant="outline-secondary" size="sm" onClick={() => handleAction('score', item.questionId)} disabled={loadingStates[item.questionId]?.score}>
-                  {loadingStates[item.questionId]?.score ? '채점 중...' : 'AI 채점하기'}
+                <Button variant="outline-primary" size="sm" onClick={() => handleAction('score', item.questionId)} disabled={loadingStates[`score-${item.questionId}`]}>
+                  {loadingStates[`score-${item.questionId}`] ? '채점 중...' : 'AI 채점하기'}
                 </Button>
               )}
             </div>
-            <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px' }}>
+            <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '4px' }}>
               {item.submitted_answer || '답변 없음'}
             </p>
 
+            {/* --- [수정] 모범 정답 표시 부분 추가 --- */}
             <div className="mt-3">
-              <Button variant="outline-info" size="sm" onClick={() => handleAction('feedback', item.questionId)} disabled={loadingStates[item.questionId]?.feedback}>
-                {loadingStates[item.questionId]?.feedback ? '해설 생성 중...' : 'AI 맞춤 해설 보기'}
+                <strong className="mb-1">모범 정답:</strong>
+                <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#e9f7ef', padding: '10px', borderRadius: '4px' }}>
+                    {item.correct_answer || '정답 정보 없음'}
+                </p>
+            </div>
+            {/* --- 여기까지 --- */}
+
+
+            <div className="mt-3">
+              <Button variant="outline-info" size="sm" onClick={() => handleAction('feedback', item.questionId)} disabled={loadingStates[`feedback-${item.questionId}`]}>
+                {loadingStates[`feedback-${item.questionId}`] ? '해설 생성 중...' : 'AI 맞춤 해설 보기'}
               </Button>
-              {item.ai_comment && (
-                <Card className="mt-2"><Card.Body><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.ai_comment}</ReactMarkdown></Card.Body></Card>
-              )}
+              <Collapse in={!!item.ai_comment}>
+                <div className="mt-2">
+                  <Card><Card.Header as="h6">AI 자동 해설</Card.Header><Card.Body><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.ai_comment}</ReactMarkdown></Card.Body></Card>
+                </div>
+              </Collapse>
             </div>
 
             <div className="mt-2">
-              <Button variant="outline-primary" size="sm" onClick={() => handleAction('similar', item.questionId)} disabled={loadingStates[item.questionId]?.similar}>
-                {loadingStates[item.questionId]?.similar ? '생성 중...' : 'AI 유사 문제 생성'}
+              <Button variant="outline-secondary" size="sm" onClick={() => handleAction('similar', item.questionId)} disabled={loadingStates[`similar-${item.questionId}`]}>
+                {loadingStates[`similar-${item.questionId}`] ? '생성 중...' : 'AI 유사 문제 생성'}
               </Button>
               <Collapse in={!!item.similar_problem}>
                 <div className="mt-2">
                   {item.similar_problem && (
-                    <Card border="primary">
+                    <Card border="secondary">
                       <Card.Header as="h6">AI 생성 유사 문제</Card.Header>
                       <Card.Body>
                           <p style={{ whiteSpace: 'pre-wrap', fontWeight: 'bold' }}>{item.similar_problem.question_text}</p>
