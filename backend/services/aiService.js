@@ -1,14 +1,9 @@
-// Gemini 라이브러리를 가져옵니다.
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-
 require('dotenv').config();
 
-// [추가] .env 파일에서 Google API 키를 가져와 Gemini 클라이언트를 초기화합니다.
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// aiService.js 파일에서 이 함수를 찾아 아래 내용으로 교체해주세요.
-
-// 1. 상세 피드백 생성 함수
+// 1. 상세 피드백 생성 함수 (영문 프롬프트)
 async function generateFeedbackForAnswer(questionText, correctAnswerOrKeywords, userAnswer) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   const prompt = `
@@ -39,79 +34,38 @@ ${userAnswer}
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
-    return text;
+    return response.text();
   } catch (error) {
     console.error("Gemini API call error (generateFeedbackForAnswer):", error);
     throw new Error("An error occurred while generating AI feedback from Gemini.");
   }
 }
 
-module.exports = {
-  generateFeedbackForAnswer,
-  generateSimilarQuestion,
-  getAiScoreForAnswer,
-  generateHierarchicalTags,
-};
-
-// JSON 출력이 필요한 함수들을 위한 헬퍼 함수
-// aiService.js 파일에서 이 함수를 찾아 아래 내용으로 교체해주세요.
-
-// JSON 출력이 필요한 함수들을 위한 헬퍼 함수
-async function generateJsonFromGemini(prompt, modelName = "gemini-1.5-flash") {
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      responseMimeType: "application/json",
-    },
-  });
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text();
-
-    // [수정] AI가 불필요한 텍스트나 마크다운을 포함해도 JSON만 추출하도록 보강
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      text = jsonMatch[0];
-    }
-
-    return JSON.parse(text);
-  } catch (error) {
-    console.error(`Gemini API JSON 생성 또는 파싱 중 오류 발생:`, error);
-    // [수정] 더 구체적인 오류 메시지를 던지도록 변경
-    throw new Error("Gemini AI로부터 유효한 JSON 응답을 받는 데 실패했습니다.");
-  }
-}
-
-// aiService.js 파일에서 이 함수를 찾아 아래 내용으로 교체해주세요.
-
-// 2. 유사 문제 생성 함수
+// 2. 유사 문제 생성 함수 (영문 프롬프트, 간결한 답변/해설 요구)
 async function generateSimilarQuestion(originalQuestionText, questionType) {
-  // [수정] 프롬프트를 영어로 변경하고, 각 필드의 역할을 명확하게 지시합니다.
   const prompt = `
 You are an expert question author for the 'Information Security Engineer' certification exam in Korea.
-Your task is to analyze the provided [Original Problem] and create one new, similar problem that tests the same core concept but uses a different context or format.
+Your task is to create one new, similar problem based on the provided [Original Problem].
 
 [Original Problem Information]:
 - Problem Type: ${questionType}
 - Problem Text: ${originalQuestionText}
 
-**CRITICAL INSTRUCTIONS FOR JSON FORMATTING:**
-Your response MUST be ONLY a single JSON object. Do not add any text or explanations outside of the JSON structure.
+**CRITICAL INSTRUCTIONS:**
+1.  Your response MUST be ONLY a single JSON object. Do not add any text outside of this JSON.
+2.  All text values in the JSON must be written in KOREAN.
+3.  Both "correct_answer" and "explanation" must be VERY CONCISE.
 
 **FIELD-SPECIFIC INSTRUCTIONS:**
-- **"question_text"**: Write the new problem text here. Must be in KOREAN.
-- **"correct_answer"**: **This field MUST BE CONCISE.** It should only contain essential keywords, key phrases, or a bulleted list of main points, NOT a full essay. This is for a keyword-based exam. Must be in KOREAN.
-- **"explanation"**: This field should contain the detailed, long-form explanation and background for the problem and answer. Must be in KOREAN.
-- **"question_type"**: This should be the same as the original problem's type.
+- **"question_text"**: The new problem text.
+- **"correct_answer"**: Provide ONLY the essential keywords or a very short key phrase. (e.g., "스트레스 테스트, 취약점 분석")
+- **"explanation"**: Provide a BRIEF core explanation in just 2-3 sentences that directly explains why the answer is correct. Do NOT include lengthy background information or examples.
 
 **JSON STRUCTURE TO USE:**
 {
-  "question_text": "Write the content of the newly created question here in your language.",
-  "correct_answer": "Write your keyword or concise answer sentence here.",
-  "explanation": "Write only a 2-3 sentence explanation of why the correct answer is the correct answer.",
+  "question_text": "새로운 문제의 내용을 여기에 작성합니다.",
+  "correct_answer": "핵심 키워드만 나열합니다. (예: 제로데이 공격, APT)",
+  "explanation": "정답이 왜 정답인지에 대한 2-3 문장의 핵심적인 해설만 작성합니다.",
   "question_type": "${questionType}"
 }
 ---
@@ -120,7 +74,7 @@ Your response MUST be ONLY a single JSON object. Do not add any text or explanat
   return await generateJsonFromGemini(prompt);
 }
 
-// 3. AI 채점 함수
+// 3. AI 채점 함수 (영문 프롬프트)
 async function getAiScoreForAnswer(questionText, correctAnswer, userAnswer) {
   const prompt = `
 You are a strict and fair grader for the 'Information Security Engineer' certification exam.
@@ -146,7 +100,7 @@ ${userAnswer}
   return resultJson.score; 
 }
 
-// 4. AI 계층형 태그 생성 함수
+// 4. AI 계층형 태그 생성 함수 (기존 한글 프롬프트 유지)
 async function generateHierarchicalTags(questionText) {
     const categoryStructure = {
         "시스템 보안": ["서버 보안", "OS 보안", "클라이언트 보안", "가상화 보안", "보안 아키텍처"],
@@ -174,10 +128,34 @@ async function generateHierarchicalTags(questionText) {
     return await generateJsonFromGemini(prompt);
 }
 
+// JSON 출력이 필요한 함수들을 위한 헬퍼 함수 (안정성 강화 버전)
+async function generateJsonFromGemini(prompt, modelName = "gemini-1.5-flash") {
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    generationConfig: {
+      responseMimeType: "application/json",
+    },
+  });
 
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text();
 
+    // AI가 불필요한 텍스트나 마크다운을 포함해도 JSON만 추출하도록 보강
+    const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) {
+      text = jsonMatch[0];
+    }
 
-// module.exports에 모든 함수를 그대로 내보냅니다.
+    return JSON.parse(text);
+  } catch (error) {
+    console.error(`Gemini API JSON 생성 또는 파싱 중 오류 발생:`, error);
+    throw new Error("Gemini AI로부터 유효한 JSON 응답을 받는 데 실패했습니다.");
+  }
+}
+
+// module.exports에 모든 함수를 내보냅니다.
 module.exports = {
   generateFeedbackForAnswer,
   generateSimilarQuestion,
