@@ -16,6 +16,13 @@ exports.submitAnswers = asyncHandler(async (req, res) => {
     res.status(201).json(result);
 });
 
+// [신규] 개인 피드백 생성 컨트롤러
+exports.getPersonalFeedback = asyncHandler(async (req, res) => {
+    const { submissionId, questionId } = req.body;
+    const result = await submissionService.getPersonalFeedback(submissionId, questionId);
+    res.json(result);
+});
+
 
 exports.getMySubmissions = asyncHandler(async (req, res) => {
     const { userId } = req.query; // 프론트엔드에서 쿼리로 userId를 보내는 것을 가정

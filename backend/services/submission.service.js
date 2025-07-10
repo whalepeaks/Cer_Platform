@@ -7,6 +7,27 @@ const SCORE_MAP = {
   '실무형': 16
 };
 
+// [신규] 개인 피드백을 생성하고 결과를 반환하는 서비스
+async function getPersonalFeedback(submissionId, questionId) {
+    // [수정] q.explanation을 추가로 조회합니다.
+    const [dataRows] = await pool.query(
+        `SELECT q.question_text, q.correct_answer, q.explanation, ua.submitted_answer 
+         FROM user_answers ua 
+         JOIN questions q ON ua.question_id = q.id 
+         WHERE ua.submission_id = ? AND ua.question_id = ?`,
+        [submissionId, questionId]
+    );
+    if (dataRows.length === 0) {
+        throw new Error("피드백 생성에 필요한 문제 정보를 찾을 수 없습니다.");
+    }
+    const data = dataRows[0];
+
+    // [수정] aiService에 explanation을 함께 전달합니다.
+    const personalFeedback = await aiService.generatePersonalFeedback(data.question_text, data.explanation, data.submitted_answer);
+
+    return { personalFeedback };
+}
+
 async function submitAnswers(userId, setId, answers) {
     const connection = await pool.getConnection();
     try {
@@ -164,6 +185,7 @@ async function calculateFinalScore(submissionId) {
 }
 
 module.exports = {
+    getPersonalFeedback,
     submitAnswers,
     getMySubmissions,
     getSubmissionResult,

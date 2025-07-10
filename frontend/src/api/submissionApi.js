@@ -1,5 +1,6 @@
 import client from './client';
 
+export const getPersonalFeedback = (data) => client.post('/api/submissions/personal-feedback', data);
 export const submitAnswers = (submissionData) => client.post('/api/submissions', submissionData);
 export const getMySubmissions = (userId) => client.get(`/api/submissions/my?userId=${userId}`);
 export const getSubmissionResult = (submissionId) => client.get(`/api/submissions/${submissionId}`);

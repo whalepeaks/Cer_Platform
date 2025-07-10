@@ -4,7 +4,7 @@ import { Container, Spinner, Alert, Card, ListGroup, Button, Collapse, Badge, Ro
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../contexts/AuthContext';
-import { getSubmissionResult, scoreAnswer, getFinalScore, generateSimilarQuestion } from '../api/submissionApi';
+import { getSubmissionResult, scoreAnswer, getFinalScore, generateSimilarQuestion, getPersonalFeedback } from '../api/submissionApi';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -28,6 +28,7 @@ function ResultsPage() {
         ...response.data,
         answeredQuestions: response.data.answeredQuestions.map(q => ({
           ...q,
+          personal_feedback: null,
           similar_problem: null,
         })),
       };
@@ -48,15 +49,27 @@ function ResultsPage() {
       setVisibleStates(prev => ({ ...prev, [questionId]: !prev[questionId] }));
       return;
     }
+
     setLoadingStates(prev => ({ ...prev, [`${actionType}-${questionId}`]: true }));
     try {
       let response;
-      if (actionType === 'score') {
-        response = await scoreAnswer({ submissionId: parseInt(submissionId), questionId });
-        setResultData(prev => ({...prev, answeredQuestions: prev.answeredQuestions.map(q => q.questionId === questionId ? { ...q, ai_score: response.data.score } : q)}));
-      } else if (actionType === 'similar') {
-        response = await generateSimilarQuestion({ originalQuestionId: questionId, userId: user.userId });
-        setResultData(prev => ({...prev, answeredQuestions: prev.answeredQuestions.map(q => q.questionId === questionId ? { ...q, similar_problem: response.data } : q)}));
+      const payload = { submissionId: parseInt(submissionId), questionId };
+
+      switch (actionType) {
+        case 'score':
+          response = await scoreAnswer(payload);
+          setResultData(prev => ({ ...prev, answeredQuestions: prev.answeredQuestions.map(q => q.questionId === questionId ? { ...q, ai_score: response.data.score } : q)}));
+          break;
+        case 'personal_feedback':
+          response = await getPersonalFeedback(payload);
+          setResultData(prev => ({ ...prev, answeredQuestions: prev.answeredQuestions.map(q => q.questionId === questionId ? { ...q, personal_feedback: response.data.personalFeedback } : q)}));
+          break;
+        case 'similar':
+          response = await generateSimilarQuestion({ originalQuestionId: questionId, userId: user.userId });
+          setResultData(prev => ({ ...prev, answeredQuestions: prev.answeredQuestions.map(q => q.questionId === questionId ? { ...q, similar_problem: response.data } : q)}));
+          break;
+        default:
+          throw new Error('Unknown action type');
       }
     } catch (err) {
       alert(`오류: ${err.response?.data?.message || err.message}`);
@@ -83,7 +96,7 @@ function ResultsPage() {
     setProgress({ current: 0, total: 0, message: '' });
     setLoadingStates({});
   }, [resultData, handleAction]);
-
+  
   const handleGetFinalScore = useCallback(async () => {
     if (!resultData) return;
     const unScoredQuestions = resultData.answeredQuestions.filter(q => q.ai_score === null || typeof q.ai_score === 'undefined');
@@ -114,6 +127,7 @@ function ResultsPage() {
       <p>제출일: {new Date(submissionInfo.submitted_at).toLocaleString('ko-KR')}</p>
       <hr />
       
+      {/* [복구] 이전에 실수로 빠뜨렸던 채점 및 점수 확인 카드 섹션 */}
       <Card className="mb-4 text-center">
         <Card.Header as="h5">채점 및 점수 확인</Card.Header>
         <Card.Body>
@@ -162,30 +176,37 @@ function ResultsPage() {
             <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '4px' }}>
               {item.submitted_answer || '답변 없음'}
             </p>
-
             <div className="mt-3">
-                <strong className="mb-1">모범 정답:</strong>
-                <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#e9f7ef', padding: '10px', borderRadius: '4px' }}>
-                    {item.correct_answer || '정답 정보 없음'}
-                </p>
+              <strong className="mb-1">모범 정답:</strong>
+              <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#e9f7ef', padding: '10px', borderRadius: '4px' }}>
+                  {item.correct_answer || '정답 정보 없음'}
+              </p>
             </div>
-            
-            <div className="mt-3">
+            <div className="mt-3 d-flex gap-2">
               <Button variant="outline-info" size="sm" onClick={() => handleAction('explanation', item.questionId)}>
                 {visibleStates[item.questionId] ? '해설 숨기기' : '해설 보기'}
               </Button>
-              <Collapse in={!!visibleStates[item.questionId]}>
-              <div className="mt-2">
-              <Card style={{ backgroundColor: '#e7f5ff' }}>
-              <Card.Header as="h6">AI 생성 해설</Card.Header>
-              <Card.Body>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.explanation || "해설 정보가 없습니다."}</ReactMarkdown>
-      </Card.Body>
-    </Card>
-  </div>
-</Collapse>
+              <Button variant="outline-success" size="sm" onClick={() => handleAction('personal_feedback', item.questionId)} disabled={loadingStates[`personal_feedback-${item.questionId}`]}>
+                {loadingStates[`personal_feedback-${item.questionId}`] ? '피드백 생성 중...' : '내 답변 피드백 보기'}
+              </Button>
             </div>
-
+            <Collapse in={!!visibleStates[item.questionId]}>
+              <div className="mt-2">
+                <Card style={{ backgroundColor: '#e7f5ff' }}><Card.Header as="h6">문제 해설</Card.Header><Card.Body><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.explanation || "해설 정보가 없습니다."}</ReactMarkdown></Card.Body></Card>
+              </div>
+            </Collapse>
+            {item.personal_feedback && (
+              <div className="mt-2">
+                <Card bg="light">
+  <Card.Header as="h6">개인 맞춤 피드백</Card.Header>
+  <Card.Body>
+    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      {item.personal_feedback}
+    </ReactMarkdown>
+  </Card.Body>
+</Card>
+              </div>
+            )}
             <div className="mt-2">
               <Button variant="warning" size="sm" onClick={() => handleAction('similar', item.questionId)} disabled={loadingStates[`similar-${item.questionId}`]}>
                 {loadingStates[`similar-${item.questionId}`] ? '생성 중...' : 'AI 유사 문제 생성'}
@@ -193,13 +214,13 @@ function ResultsPage() {
               <Collapse in={!!item.similar_problem}>
                 <div className="mt-2">
                   {item.similar_problem && (
-                      <Card style={{ backgroundColor: '#fffbe6' }} border="warning">
+                    <Card style={{ backgroundColor: '#fffbe6' }} border="warning">
                       <Card.Header as="h6">AI 생성 유사 문제</Card.Header>
                       <Card.Body>
-                          <p style={{ whiteSpace: 'pre-wrap', fontWeight: 'bold' }}>{item.similar_problem.question_text}</p>
-                          <hr/>
-                          <p className="mb-1"><strong>정답:</strong> {item.similar_problem.correct_answer}</p>
-                          <p className="mb-1 mt-2"><strong>해설:</strong> {item.similar_problem.explanation}</p>
+                        <p style={{ whiteSpace: 'pre-wrap', fontWeight: 'bold' }}>{item.similar_problem.question_text}</p>
+                        <hr/>
+                        <p className="mb-1"><strong>정답:</strong> {item.similar_problem.correct_answer}</p>
+                        <p className="mb-1 mt-2"><strong>해설:</strong> {item.similar_problem.explanation}</p>
                       </Card.Body>
                     </Card>
                   )}

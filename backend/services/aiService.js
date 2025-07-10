@@ -3,45 +3,44 @@ require('dotenv').config();
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// 1. 상세 피드백 생성 함수 (영문 프롬프트)
-async function generateFeedbackForAnswer(questionText, correctAnswerOrKeywords, userAnswer) {
+// [개선] '해설'을 기반으로 사용자 답안을 첨삭하는 고품질 피드백 생성 함수
+async function generatePersonalFeedback(questionText, referenceExplanation, userAnswer) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   const prompt = `
-You are an expert on information security and a question author for professional certifications.
-Based on the provided [Problem], [Model Answer/Keywords], and [User's Answer], provide constructive feedback to help the user achieve a better score on their actual certification exam.
+You are a precise AI teaching assistant. Your task is to compare a [User's Answer] against a [Model Explanation] and provide a structured analysis.
 
-The feedback must be based on objective facts. It should analyze the intent of the problem and guide the user to learn by focusing on the core keywords.
-- Briefly explain the overall concept and theory behind the problem and its answer.
-- If there are comparable topics or areas that require additional study, explain them concisely.
-- To improve the user's metacognition, verify if they have accurately understood the core concepts.
+**Analysis Steps:**
+1.  Read the [Model Explanation] and identify 2-4 core keywords or key concepts.
+2.  Check if the [User's Answer] includes these core concepts.
+3.  Based on this check, generate a feedback report in KOREAN using the exact format below.
 
-[IMPORTANT] The entire feedback **must be written in Korean.** and formatted in Markdown with the following sections exactly as shown. Do not add any other text or explanation.
+**Output Format (MUST FOLLOW):**
+- **[✅ 포함된 개념]:** [List the core concepts that the user's answer correctly included, separated by commas]
+- **[💡 보완할 점]:** [Based on the concepts missing from the user's answer, write 1-2 sentences explaining what should be added to make it a perfect answer]
 
-## [개념과 해설]
-## [보완할 점 및 개선 방안]
-## [총평 및 키워드 학습 조언]
 ---
 [Problem]:
 ${questionText}
-[Model Answer/Keywords]:
-${correctAnswerOrKeywords}
+---
+[Model Explanation]:
+${referenceExplanation}
+---
 [User's Answer]:
 ${userAnswer}
 ---
-[Feedback to be generated]:
+[Generated Feedback Report]:
   `;
-
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text();
   } catch (error) {
-    console.error("Gemini API call error (generateFeedbackForAnswer):", error);
-    throw new Error("An error occurred while generating AI feedback from Gemini.");
+    console.error("Gemini API call error (generatePersonalFeedback):", error);
+    throw new Error("An error occurred while generating personal feedback.");
   }
 }
 
-// 2. 유사 문제 생성 함수 (영문 프롬프트, 간결한 답변/해설 요구)
+// 유사 문제 생성 함수 (영문 프롬프트, 간결한 답변/해설 요구)
 async function generateSimilarQuestion(originalQuestionText, questionType) {
   const prompt = `
 You are an expert question author for the 'Information Security Engineer' certification exam in Korea.
@@ -74,7 +73,7 @@ Your task is to create one new, similar problem based on the provided [Original 
   return await generateJsonFromGemini(prompt);
 }
 
-// 3. AI 채점 함수 (영문 프롬프트)
+// AI 채점 함수 (영문 프롬프트)
 async function getAiScoreForAnswer(questionText, correctAnswer, userAnswer) {
   const prompt = `
 You are a strict and fair grader for the 'Information Security Engineer' certification exam.
@@ -100,7 +99,7 @@ ${userAnswer}
   return resultJson.score; 
 }
 
-// 4. AI 계층형 태그 생성 함수 (기존 한글 프롬프트 유지)
+// AI 계층형 태그 생성 함수 (기존 한글 프롬프트 유지)
 async function generateHierarchicalTags(questionText) {
     const categoryStructure = {
         "시스템 보안": ["서버 보안", "OS 보안", "클라이언트 보안", "가상화 보안", "보안 아키텍처"],
@@ -183,9 +182,9 @@ async function generateGeneralExplanation(questionText, correctAnswer) {
 
 // module.exports에 모든 함수를 내보냅니다.
 module.exports = {
-  generateFeedbackForAnswer,
   generateSimilarQuestion,
   getAiScoreForAnswer,
   generateHierarchicalTags,
   generateGeneralExplanation,
+  generatePersonalFeedback
 };

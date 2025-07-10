@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const submissionController = require('../controllers/submission.controller');
 
+// /api/submissions/personal-feedback - 개인 피드백 생성
+router.post('/personal-feedback', submissionController.getPersonalFeedback);
+
+
 // [POST] /api/submissions - 답안 제출
 router.post('/', submissionController.submitAnswers);
 
