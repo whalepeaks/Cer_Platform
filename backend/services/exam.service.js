@@ -77,11 +77,18 @@ async function getExamSets() {
 // [신규] 특정 모의고사 세트의 문제들을 가져오는 함수
 async function getExamSetQuestions(setId) {
     const query = `
-        SELECT q.id, q.question_number, q.question_text, q.correct_answer, q.explanation, q.question_type 
+         SELECT 
+            q.id, 
+            q.question_number, 
+            q.question_text, 
+            q.correct_answer, 
+            q.explanation,  -- [수정] 이 컬럼을 SELECT 목록에 포함시킵니다.
+            q.question_type, 
+            q.topic
         FROM questions q
         JOIN mock_exam_set_questions msq ON q.id = msq.question_id
         WHERE msq.set_id = ?
-        ORDER BY q.question_number
+        ORDER BY q.question_number ASC
     `;
     const [rows] = await pool.query(query, [setId]);
     if (rows.length === 0) {

@@ -155,10 +155,37 @@ async function generateJsonFromGemini(prompt, modelName = "gemini-1.5-flash") {
   }
 }
 
+// [신규] 문제와 정답만으로 일반 해설을 생성하는 함수
+async function generateGeneralExplanation(questionText, correctAnswer) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const prompt = `
+  You are an information security expert. Based on the provided [Problem] and [Model Answer], generate a clear and concise explanation.
+  The explanation should cover the core concepts and theory behind the problem.
+  The entire response must be written in KOREAN and formatted in Markdown.
+  ---
+  [Problem]:
+  ${questionText}
+  ---
+  [Model Answer]:
+  ${correctAnswer}
+  ---
+  [Generated Explanation]:
+  `;
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error("Gemini API call error (generateGeneralExplanation):", error);
+    throw new Error("An error occurred while generating AI general explanation.");
+  }
+}
+
 // module.exports에 모든 함수를 내보냅니다.
 module.exports = {
   generateFeedbackForAnswer,
   generateSimilarQuestion,
   getAiScoreForAnswer,
   generateHierarchicalTags,
+  generateGeneralExplanation,
 };
