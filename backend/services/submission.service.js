@@ -58,19 +58,16 @@ async function getMySubmissions(userId) {
     return submissions;
 }
 
+// submission.service.js 파일에서 이 함수를 찾아 아래 코드로 교체해주세요.
+
 async function getSubmissionResult(submissionId) {
-    // [수정] SQL 쿼리문을 새로운 테이블 구조에 맞게 변경합니다.
     const [submissionDetails] = await pool.query(
         `SELECT 
             ms.id as submissionId, 
             ms.submitted_at, 
-            mes.id as setId,
-            mes.set_name as examSetName,
-            et.id as examTypeId, 
-            et.certification_name as examTypeName
+            mes.set_name as examSetName
          FROM mock_exam_submissions ms
          JOIN mock_exam_sets mes ON ms.set_id = mes.id
-         JOIN exam_types et ON mes.exam_type_id = et.id
          WHERE ms.id = ?`,
         [submissionId]
     );
@@ -82,6 +79,7 @@ async function getSubmissionResult(submissionId) {
     const query = `
         SELECT 
             q.id as questionId,
+            q.question_number,
             q.question_text,
             q.correct_answer,
             q.explanation,
@@ -93,7 +91,7 @@ async function getSubmissionResult(submissionId) {
         FROM user_answers ua
         JOIN questions q ON ua.question_id = q.id
         WHERE ua.submission_id = ?
-        ORDER BY q.id;
+        ORDER BY q.question_number ASC;  -- [수정 완료] 문제 번호 순으로 정렬
     `;
     const [answeredQuestions] = await pool.query(query, [submissionId]);
 
